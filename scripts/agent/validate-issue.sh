@@ -71,9 +71,9 @@ echo "Replicating issue #$ISSUE_NUMBER against binary $BUILD_ID (repacked or bui
 # --build-id installs and launches the binary before the session is ready.
 SESSION_NAME_FULL=$(printf 'Issue #%s expo-bot: %s' "$ISSUE_NUMBER" "$ISSUE_TITLE")
 SESSION_NAME=${SESSION_NAME_FULL:0:50}
-eas simulator:start --platform ios --type argent \
+start_simulator_session --platform ios --type argent \
   --build-id "$BUILD_ID" \
-  --max-duration-minutes 30 --non-interactive --name "$SESSION_NAME"
+  --max-duration-minutes 30 --non-interactive --name "$SESSION_NAME" || exit 1
 
 wait_for_session
 

@@ -122,6 +122,25 @@ use_claude_token() {
   if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then unset ANTHROPIC_API_KEY; fi
 }
 
+# start_simulator_session <simulator:start args...> -> up to three attempts
+# with a pause between them. Seen in practice: a session that errors
+# before its tool-server is ready, and a "Service Unavailable" on the
+# retry straight after it; the pause lets the service settle.
+start_simulator_session() {
+  local attempt
+  for attempt in 1 2 3; do
+    if eas simulator:start "$@"; then
+      return 0
+    fi
+    if [ "$attempt" -eq 3 ]; then
+      echo "simulator:start failed three times; giving up."
+      return 1
+    fi
+    echo "simulator:start failed (attempt ${attempt}); starting a fresh session in 30s..."
+    sleep 30
+  done
+}
+
 # wait_for_session [session-id] -> poll simulator:get (up to 16 min) until
 # the session is IN_PROGRESS and has its remoteConfig; exit 1 when it
 # stopped or errored. Without an id, the dotenv default session is polled.
@@ -240,7 +259,11 @@ wait_for_home() {
     echo "Home screen not visible yet (attempt ${attempt})."
     if [ "$attempt" -eq 3 ]; then
       echo "Relaunching the app once..."
-      bash scripts/agent/argent.sh run restart-app --udid "$UDID" --bundleId "$APP_ID" >/dev/null 2>&1 || true
+      if bash scripts/agent/argent.sh run restart-app --udid "$UDID" --bundleId "$APP_ID" >/tmp/relaunch.txt 2>&1; then
+        echo "Relaunch sent."
+      else
+        echo "Relaunch failed:"; tail -3 /tmp/relaunch.txt
+      fi
       sleep 5
     fi
     sleep 5
@@ -248,6 +271,8 @@ wait_for_home() {
   echo "$snapshot" | tee /tmp/home-snapshot.txt
   if ! echo "$snapshot" | grep -q "$marker"; then
     echo "❌ Home screen ('${marker}') not visible after launch and one relaunch."
+    # Keep the last tree with the evidence so the uploaded artifact says why.
+    [ -d evidence ] && cp /tmp/home-snapshot.txt evidence/home-snapshot.txt
     exit 1
   fi
 }

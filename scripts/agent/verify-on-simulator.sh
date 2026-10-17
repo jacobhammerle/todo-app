@@ -70,9 +70,9 @@ echo "Verifying binary $BUILD_ID (repacked or built with this PR's JS)"
 # ready — no artifact download, upload, or manual launch needed.
 SESSION_NAME_FULL=$(printf 'PR #%s expo-bot: %s' "$PR_NUMBER" "$PR_TITLE")
 SESSION_NAME=${SESSION_NAME_FULL:0:50}
-eas simulator:start --platform ios --type argent \
+start_simulator_session --platform ios --type argent \
   --build-id "$BUILD_ID" \
-  --max-duration-minutes 30 --non-interactive --name "$SESSION_NAME"
+  --max-duration-minutes 30 --non-interactive --name "$SESSION_NAME" || exit 1
 
 wait_for_session
 

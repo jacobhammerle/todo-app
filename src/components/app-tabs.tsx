@@ -2,7 +2,11 @@ import { NativeTabs } from "expo-router/unstable-native-tabs";
 
 import { useTheme } from "@/hooks/use-theme";
 
-/** The native tab bar: SF Symbols on iOS, Material icons on Android. */
+/**
+ * The native tab bar: SF Symbols on iOS, Material icons on Android. The
+ * `md` icons are rendered by expo-symbols, so that package stays in
+ * package.json although nothing imports it directly.
+ */
 export default function AppTabs() {
   const colors = useTheme();
 

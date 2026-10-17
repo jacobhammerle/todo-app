@@ -51,6 +51,12 @@ trap cleanup EXIT
 
 require_build "${PLATFORM} binary to test against"
 
+# The evidence folder is uploaded as the lane's artifact even when the lane
+# fails, and an empty folder fails the upload step. The marker names the
+# lane; the evidence site reads only images and clips, so it is ignored there.
+mkdir -p "$EVIDENCE_DIR"
+printf 'lane=%s\nplatform=%s\nbuild=%s\n' "$LANE" "$PLATFORM" "$BUILD_ID" > "$EVIDENCE_DIR/lane.txt"
+
 mkdir -p "$EVIDENCE_DIR"
 
 echo "QA lane '${LANE}' against binary $BUILD_ID (repacked or built with this checkout's JS)"
@@ -65,20 +71,12 @@ fi
 T_START=$(date +%s)
 # eas-cli waits at most 15 min for the session to be ready and stops it
 # on timeout (seen in practice: Android boots of 3m19s, 6m35s, and one
-# over 15m). One retry with a fresh session rescues a slow boot.
-for attempt in 1 2; do
-  if eas simulator:start --platform "$PLATFORM" --type argent \
+# over 15m). start_simulator_session (comment-lib.sh) retries with a
+# fresh session, which rescues a slow boot or a service hiccup.
+start_simulator_session --platform "$PLATFORM" --type argent \
       --build-id "$BUILD_ID" \
       --tag qa-swarm \
-      --max-duration-minutes 30 --non-interactive --name "${SESSION_NAME:0:50}"; then
-    break
-  fi
-  if [ "$attempt" -eq 2 ]; then
-    echo "simulator:start failed twice; giving up on this lane."
-    exit 1
-  fi
-  echo "simulator:start failed (attempt ${attempt}); starting a fresh session..."
-done
+      --max-duration-minutes 30 --non-interactive --name "${SESSION_NAME:0:50}" || exit 1
 
 wait_for_session
 T_LIVE=$(date +%s)
