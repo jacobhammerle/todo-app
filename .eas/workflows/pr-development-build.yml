@@ -1,0 +1,113 @@
+# ──────────────────────────────────────────────────────────────────────
+# PR development builds
+#
+# Every pull request into develop or main gets installable development
+# builds without wasting build minutes:
+#
+#   1. fingerprint: hash the PR's native code
+#   2. find:        look for existing dev builds with the same hash
+#   3. build:       run only when the hash is new (native code changed)
+#   4. comment:     post install QR codes on the PR
+#
+# JS-only PRs reuse existing builds; the PR's JavaScript ships
+# separately as the preview update posted by pr-preview.yml.
+# ──────────────────────────────────────────────────────────────────────
+name: PR development builds
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "**/*"
+      - "!**/*.md"
+      - "!.claude/**"
+      - "!.vscode/**"
+      - "!scripts/**"
+
+# A new push to the PR replaces the run for the previous push.
+concurrency:
+  group: ${{ workflow.filename }}-${{ github.ref }}
+  cancel_in_progress: true
+
+jobs:
+  fingerprint:
+    name: 1. Fingerprint native code
+    type: fingerprint
+    # Promotion PRs (develop -> main) skip the PR pipeline entirely; the
+    # push-to-main workflow covers them. Skipping the root job skips every
+    # job that `needs` it; the comment job carries its own guard because
+    # `after` does not gate on success.
+    if: ${{ github.event.pull_request.head.ref != 'develop' }}
+    environment: development
+
+  find_android_build:
+    name: 2. Find reusable Android build
+    type: get-build
+    needs: [fingerprint]
+    params:
+      platform: android
+      profile: development
+      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  find_ios_build:
+    name: 2. Find reusable iOS build
+    type: get-build
+    needs: [fingerprint]
+    params:
+      platform: ios
+      profile: development
+      # Device build: the QR code must install on a phone.
+      simulator: false
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  build_android:
+    name: 3. Build Android (native changed)
+    type: build
+    needs: [find_android_build]
+    if: ${{ !needs.find_android_build.outputs.build_id }}
+    params:
+      platform: android
+      profile: development
+      message: ${{ github.event.pull_request.title }}
+
+  build_ios:
+    name: 3. Build iOS device (native changed)
+    type: build
+    needs: [find_ios_build]
+    if: ${{ !needs.find_ios_build.outputs.build_id }}
+    params:
+      platform: ios
+      profile: development
+      message: ${{ github.event.pull_request.title }}
+
+  # Simulator flavor for local and cloud-simulator use.
+  # Not posted on the PR; only device builds install from a QR code.
+  build_ios_simulator:
+    name: 3. Build iOS simulator (native changed)
+    type: build
+    needs: [find_ios_build]
+    if: ${{ !needs.find_ios_build.outputs.build_id }}
+    params:
+      platform: ios
+      profile: development-simulator
+      message: ${{ github.event.pull_request.title }}
+
+  comment:
+    name: 4. Post install QR codes
+    type: github-comment
+    # after-only ordering still runs past skipped jobs; guard explicitly.
+    if: ${{ github.event.pull_request.head.ref != 'develop' }}
+    after: [find_android_build, find_ios_build, build_android, build_ios]
+    params:
+      message: |-
+        ### 🔧 Development builds for this PR
+
+        Scan to install. Builds are reused when nothing native changed, so one you already have still works. Then load this PR's JavaScript from the preview-update comment.
+      # Reused or freshly built, whichever this run produced.
+      build_ids:
+        - ${{ after.find_android_build.outputs.build_id || after.build_android.outputs.build_id }}
+        - ${{ after.find_ios_build.outputs.build_id || after.build_ios.outputs.build_id }}

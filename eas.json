@@ -1,0 +1,57 @@
+{
+  "cli": {
+    "version": ">= 25.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "environment": "development",
+      "channel": "development",
+      "env": {
+        "EAS_USE_CACHE": "1",
+        "APP_VARIANT": "develop"
+      }
+    },
+    "development-simulator": {
+      "extends": "development",
+      "ios": {
+        "simulator": true
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "environment": "preview",
+      "channel": "preview",
+      "env": {
+        "EAS_USE_CACHE": "1",
+        "APP_VARIANT": "develop"
+      },
+      "ios": {
+        "simulator": true
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "environment": "production",
+      "channel": "production",
+      "env": {
+        "EAS_RESTORE_CACHE": "0",
+        "EAS_SAVE_CACHE": "1",
+        "APP_VARIANT": "production"
+      },
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "resourceClass": "medium"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {}
+    }
+  }
+}

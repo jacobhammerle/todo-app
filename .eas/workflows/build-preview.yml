@@ -1,0 +1,87 @@
+# ──────────────────────────────────────────────────────────────────────
+# Preview channel from develop
+#
+# Every merge to develop refreshes the `preview` channel, the one QA and
+# stakeholders surf to from the Admin tab:
+#
+#   1. fingerprint: hash the native code
+#   2. find:        are preview builds with this fingerprint already there?
+#   3. release:     yes -> publish the JS as an OTA update (seconds)
+#                   no  -> build new iOS and Android preview binaries
+#
+# Nobody decides which; the fingerprint does. Run it on demand:
+#   eas workflow:run build-preview.yml
+# ──────────────────────────────────────────────────────────────────────
+name: Build or update the preview channel
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "**/*"
+      - "!**/*.md"
+      - "!.claude/**"
+      - "!.vscode/**"
+      - "!scripts/**"
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ workflow.filename }}-${{ github.ref }}
+  cancel_in_progress: true
+
+jobs:
+  fingerprint:
+    name: 1. Fingerprint native code
+    type: fingerprint
+    environment: preview
+
+  get_ios_build:
+    name: 2. Find iOS preview build
+    type: get-build
+    needs: [fingerprint]
+    params:
+      platform: ios
+      profile: preview
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      # Reuse an in-flight build instead of spawning a duplicate.
+      wait_for_in_progress: true
+
+  get_android_build:
+    name: 2. Find Android preview build
+    type: get-build
+    needs: [fingerprint]
+    params:
+      platform: android
+      profile: preview
+      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  update:
+    name: 3. Publish OTA update to preview (JS-only change)
+    type: update
+    environment: preview
+    needs: [get_ios_build, get_android_build]
+    if: ${{ needs.get_ios_build.outputs.build_id && needs.get_android_build.outputs.build_id }}
+    params:
+      channel: preview
+
+  build_ios:
+    name: 3. Build iOS preview (native changed)
+    type: build
+    needs: [get_ios_build]
+    if: ${{ !needs.get_ios_build.outputs.build_id }}
+    params:
+      platform: ios
+      profile: preview
+      message: ${{ substring(github.event.head_commit.message, 0, 1000) }}
+
+  build_android:
+    name: 3. Build Android preview (native changed)
+    type: build
+    needs: [get_android_build]
+    if: ${{ !needs.get_android_build.outputs.build_id }}
+    params:
+      platform: android
+      profile: preview
+      message: ${{ substring(github.event.head_commit.message, 0, 1000) }}

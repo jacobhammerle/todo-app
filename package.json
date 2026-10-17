@@ -1,0 +1,54 @@
+{
+  "name": "simple-todo",
+  "main": "expo-router/entry",
+  "version": "1.0.0",
+  "repository": "github:jacobhammerle/todo-app",
+  "license": "MIT",
+  "engines": {
+    "node": "^22.13.0 || ^24.3.0 || ^26.0.0 || >=27.0.0"
+  },
+  "dependencies": {
+    "@expo/ui": "~58.0.20",
+    "expo": "^58.0.14",
+    "expo-app-metrics": "~58.0.13",
+    "expo-constants": "~58.0.12",
+    "expo-dev-client": "~58.0.14",
+    "expo-font": "~58.0.8",
+    "expo-linking": "~58.0.13",
+    "expo-observe": "~58.0.15",
+    "expo-router": "~58.0.23",
+    "expo-splash-screen": "~58.0.10",
+    "expo-system-ui": "~58.0.6",
+    "expo-updates": "~58.0.17",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.0",
+    "react-native-gesture-handler": "~3.3.0",
+    "react-native-safe-area-context": "~5.10.1",
+    "react-native-screens": "~4.30.0",
+    "react-native-web": "^0.21.4"
+  },
+  "devDependencies": {
+    "@types/react": "~19.3.0",
+    "eas-simulator-evidence": "^0.2.3",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~58.0.0",
+    "prettier": "3.9.5",
+    "sharp": "^0.35.3",
+    "typescript": "~6.0.3",
+    "webdriverio": "^10.0.2"
+  },
+  "scripts": {
+    "start": "expo start --scheme simpletodo",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "update:critical": "node ./scripts/publish-critical-update.mjs",
+    "demo:reset": "node ./scripts/reset-demo.mjs",
+    "icons": "node ./scripts/generate-app-icons.mjs"
+  },
+  "private": true
+}

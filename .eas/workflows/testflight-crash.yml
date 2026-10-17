@@ -1,0 +1,61 @@
+# ──────────────────────────────────────────────────────────────────────
+# TestFlight crash intake
+#
+# A TestFlight build crashes and the tester (or iOS) sends the report.
+# App Store Connect fires this workflow, which fetches the symbolicated
+# crash log, has a Claude agent write a developer-facing title and
+# summary, files a GitHub issue (labels: testflight + bug), and dispatches
+# expo-bot-issue.yml to replicate it on an EAS cloud simulator, open a
+# fix PR, and verify that PR (auto_verify=true).
+#
+# Split from testflight-feedback.yml so the event type is known
+# statically; both share scripts/agent/intake-testflight.{sh,mjs}.
+# Run manually against the newest crash:
+#   eas workflow:run testflight-crash.yml
+#
+# Env vars required (EAS environment variables, production environment):
+#   EXPO_TOKEN_SIMULATOR, CLAUDE_CODE_OAUTH_TOKEN, GITHUB_TOKEN
+#   (see testflight-feedback.yml)
+# GH_REPO (owner/repo) is read from package.json "repository"; an EAS env var
+# named GH_REPO overrides it.
+# ──────────────────────────────────────────────────────────────────────
+name: TestFlight crash intake
+
+on:
+  app_store_connect:
+    beta_feedback:
+      types:
+        - crash
+  workflow_dispatch: {}
+
+jobs:
+  intake:
+    name: 1. File issue and dispatch expo-bot
+    environment: production
+    env:
+      FEEDBACK_KIND: crash
+      ASC_FEEDBACK_ID: ${{ app_store_connect.beta_feedback.id }}
+      BASE_BRANCH: main
+    outputs:
+      issue_number: ${{ steps.intake.outputs.issue_number }}
+      issue_url: ${{ steps.intake.outputs.issue_url }}
+      run_url: ${{ steps.intake.outputs.run_url }}
+    steps:
+      - uses: eas/checkout
+      - uses: eas/use_npm_token
+      - uses: eas/install_node_modules
+      - id: intake
+        name: Fetch the crash log, triage, file, dispatch
+        run: bash scripts/agent/intake-testflight.sh
+
+  report:
+    name: 2. Intake report
+    type: doc
+    needs: [intake]
+    params:
+      md: |
+        # 💥 TestFlight crash → issue #${{ needs.intake.outputs.issue_number }}
+
+        - 🐙 **[GitHub issue](${{ needs.intake.outputs.issue_url }})**: device, build, and the symbolicated crash log
+        - 🤖 **[expo-bot run](${{ needs.intake.outputs.run_url }})**: replicating on an EAS cloud simulator, then opening and verifying a PR
+        - 📡 **Channel**: the fix PR gets its own `pr-<number>` update channel; surf to it from the Admin tab on your TestFlight build

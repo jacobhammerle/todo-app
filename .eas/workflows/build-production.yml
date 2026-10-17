@@ -1,0 +1,111 @@
+# ──────────────────────────────────────────────────────────────────────
+# Production release from main
+#
+# Promoting develop to main ships to real devices, including the
+# TestFlight build testers hold:
+#
+#   1. approve:     a human approves the run on the EAS dashboard
+#   2. fingerprint: hash the native code
+#   3. find:        are production builds with this fingerprint there?
+#   4. release:     builds found
+#                     -> publish the JS as an OTA update to `production`
+#                   native changed
+#                     -> build new store binaries; iOS goes to TestFlight
+#
+# JS-only fixes from the TestFlight feedback loop therefore reach the
+# tester's phone over the air, minutes after the PR merges.
+# ──────────────────────────────────────────────────────────────────────
+name: Build or update production from main
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "**/*"
+      - "!**/*.md"
+      - "!.claude/**"
+      - "!.vscode/**"
+      - "!scripts/**"
+
+# cancel_in_progress: false — a new push to main must not cancel an approved
+# release that is mid-publish. EAS never queues runs, so overlapping pushes
+# run in parallel; the require-approval gate serializes them in practice.
+concurrency:
+  group: ${{ workflow.filename }}-${{ github.ref }}
+  cancel_in_progress: false
+
+jobs:
+  approve:
+    name: 1. Approve release
+    type: require-approval
+
+  fingerprint:
+    name: 2. Fingerprint native code
+    type: fingerprint
+    environment: production
+    needs: [approve]
+
+  # Does a compatible production build exist?
+
+  get_ios_build:
+    name: 3. Find iOS production build
+    type: get-build
+    needs: [fingerprint]
+    params:
+      platform: ios
+      profile: production
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  get_android_build:
+    name: 3. Find Android production build
+    type: get-build
+    needs: [fingerprint]
+    params:
+      platform: android
+      profile: production
+      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  # Release: OTA update when compatible builds exist, full build if native changed
+
+  update:
+    name: 4. Publish OTA update to production
+    type: update
+    environment: production
+    needs: [get_ios_build, get_android_build]
+    if: ${{ needs.get_ios_build.outputs.build_id && needs.get_android_build.outputs.build_id }}
+    params:
+      channel: production
+
+  build_ios:
+    name: 4. Build iOS production (native changed)
+    type: build
+    needs: [get_ios_build]
+    if: ${{ !needs.get_ios_build.outputs.build_id }}
+    params:
+      platform: ios
+      profile: production
+      message: ${{ substring(github.event.head_commit.message, 0, 1000) }}
+
+  # Every new store binary goes straight to TestFlight, so testers on the
+  # phone are always on native code that matches main. JS-only releases
+  # reach the same TestFlight build over the air via the update job.
+  submit_ios:
+    name: 4. Submit iOS to TestFlight
+    type: submit
+    needs: [build_ios]
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: production
+
+  build_android:
+    name: 4. Build Android production (native changed)
+    type: build
+    needs: [get_android_build]
+    if: ${{ !needs.get_android_build.outputs.build_id }}
+    params:
+      platform: android
+      profile: production
+      message: ${{ substring(github.event.head_commit.message, 0, 1000) }}

@@ -1,0 +1,52 @@
+name: Preview watchdog
+
+# Caps the simulator sessions that the evidence site's "Try this build on a
+# simulator" button starts. That button is an expo.dev create-session link,
+# and links cannot set a duration: their sessions get the account default,
+# while CLI/REST sessions can pass maxDurationMinutes. This workflow stops
+# any evidence-site preview session that is 20+ minutes old through
+# `eas-simulator-evidence sweep` (the page names those sessions
+# "... evidence-site preview"). Other session types and names are ignored.
+#
+# Manual trigger only. Seen in practice: on a scheduled run the inputs
+# context is empty, so the job-level env mapping below failed validation
+# on every run ("[env.DRY_RUN]: Invalid input"); the cron schedule was
+# removed for that reason.
+# If a schedule comes back, resolve the inputs inside the run step with
+# `${{ inputs.x || 'default' }}` instead of in env. Run it by hand with
+#   eas workflow:run preview-watchdog.yml [-F dry_run=true]
+# Env vars required (EAS environment variables, production environment):
+#   EXPO_TOKEN_SIMULATOR   personal access token (simulator is actor-gated)
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        type: boolean
+        description: "List what would be stopped without stopping anything"
+        default: false
+      max_age_minutes:
+        type: number
+        description: "Stop evidence-site preview sessions older than this many minutes"
+        default: 20
+
+jobs:
+  stop_stale_previews:
+    name: 1. Stop evidence-site previews past their allowance
+    environment: production
+    env:
+      DRY_RUN: ${{ inputs.dry_run }}
+      PREVIEW_MAX_AGE_MINUTES: ${{ inputs.max_age_minutes }}
+    steps:
+      - uses: eas/checkout
+      # app.config.ts imports from expo/config; eas-cli can't read the
+      # project config until node_modules exist.
+      - uses: eas/use_npm_token
+      - uses: eas/install_node_modules
+      - name: Stop stale preview sessions
+        run: |
+          set -euo pipefail
+          # The injected EXPO_TOKEN cannot manage simulator sessions.
+          export EXPO_TOKEN="${EXPO_TOKEN_SIMULATOR:-${EXPO_TOKEN:-}}"
+          FLAG=""
+          [ "$DRY_RUN" = "true" ] && FLAG="--dry-run"
+          npx --no-install eas-simulator-evidence sweep --older-than "$PREVIEW_MAX_AGE_MINUTES" $FLAG

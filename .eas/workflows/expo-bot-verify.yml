@@ -1,0 +1,189 @@
+# ──────────────────────────────────────────────────────────────────────
+# Expo bot PR verify
+#
+# Comment "@expo-bot" on a pull request and this workflow:
+#
+#   1. review:      Claude reads the PR diff and posts a code review
+#   2. fingerprint: hash the PR's native code
+#   3. get-build:   find a fingerprint-matched simulator binary
+#   4. build:       or build one when the native code changed
+#   5. repack:      inject the PR's JS into the found binary — no shared
+#                   channel, so any number of PRs verify in parallel
+#   6. publish:     publish the PR's JS to its own channel, pr-N, so a
+#                   human can surf to it from the Admin tab on any release
+#                   build
+#   7. verify:      an agent drives the repacked app on an EAS cloud
+#                   simulator; screenshots go to EAS Hosting at alias
+#                   pr-N-evidence, and review, verdict, evidence, and the
+#                   pr-N channel land on the PR
+#   8. blocked:     or a note when verify (or the publish) failed
+#   9. report:      the verification report
+#
+# Dispatched by .github/workflows/expo-bot-bridge.yml, which checks out
+# the PR head first, so every job here sees the PR's code. Run manually:
+#   eas workflow:run expo-bot-verify.yml -F pr_number=<N>
+#
+# Env vars required (EAS environment variables, production environment):
+#   EXPO_TOKEN_SIMULATOR      personal access token (simulator is actor-gated)
+#   CLAUDE_CODE_OAUTH_TOKEN   from `claude setup-token` (or ANTHROPIC_API_KEY)
+#   GITHUB_TOKEN              GitHub token with pull-request write access
+# GH_REPO (owner/repo) is read from package.json "repository"; an EAS env var
+# named GH_REPO overrides it.
+# Agent prompts live in repo files (EAS caps workflow YAML at 16 kB):
+#   .eas/expo-bot-verify-prompt.md, scripts/agent/*
+# ──────────────────────────────────────────────────────────────────────
+name: Expo bot PR verify
+
+# A new @expo-bot comment on the same PR replaces the run in progress.
+concurrency:
+  group: ${{ workflow.filename }}-pr-${{ inputs.pr_number }}
+  cancel_in_progress: true
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: The pull request number to review and verify
+        type: string
+        required: true
+      instruction:
+        description: Optional reviewer guidance (text after @expo-bot in the comment)
+        type: string
+        default: ""
+
+jobs:
+  review:
+    name: 1. Review the PR diff
+    environment: production
+    env:
+      PR_NUMBER: ${{ inputs.pr_number }}
+    steps:
+      - uses: eas/checkout
+      - uses: eas/use_npm_token
+      - uses: eas/install_node_modules
+      - name: Review the diff and post a comment
+        run: |
+          set -euo pipefail
+          # A numeric test catches every uninterpolated form.
+          if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "pr_number input not interpolated; cannot continue."
+            exit 1
+          fi
+          bash scripts/agent/review-pr.sh
+
+  fingerprint:
+    name: 2. Fingerprint native code
+    type: fingerprint
+    environment: preview
+
+  get_build:
+    name: 3. Find matching simulator build
+    type: get-build
+    needs: [fingerprint]
+    params:
+      platform: ios
+      profile: preview
+      simulator: true
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  build:
+    name: 4. Build iOS simulator (native changed)
+    type: build
+    needs: [get_build]
+    if: ${{ !needs.get_build.outputs.build_id }}
+    params:
+      platform: ios
+      profile: preview
+      message: PR ${{ inputs.pr_number }} expo-bot verify
+
+  # A found binary carries the JS it was built with; repack swaps in the
+  # PR's JS. A fresh build (above) already has it, so no repack then.
+  repack:
+    name: 5. Repack with the PR's JS
+    type: repack
+    needs: [get_build]
+    if: ${{ needs.get_build.outputs.build_id }}
+    params:
+      build_id: ${{ needs.get_build.outputs.build_id }}
+      # Explicit profile: workflow:validate crashes when repack omits it.
+      profile: preview
+      message: PR ${{ inputs.pr_number }} expo-bot verify
+
+  # The human-facing copy: the same JS on a channel named after the PR.
+  # eas update creates the channel and branch on first publish.
+  publish_update:
+    name: 6. Publish PR JS to channel pr-N
+    type: update
+    environment: preview
+    needs: [get_build]
+    params:
+      channel: pr-${{ inputs.pr_number }}
+      message: PR ${{ inputs.pr_number }} expo-bot verify
+
+  verify:
+    name: 7. Verify on cloud simulator
+    needs: [get_build, publish_update]
+    after: [build, repack]
+    environment: production
+    env:
+      BUILD_ID: ${{ after.build.outputs.build_id || after.repack.outputs.build_id }}
+      BUILD_STATUS: ${{ after.build.status }}
+      REPACK_STATUS: ${{ after.repack.status }}
+      PR_NUMBER: ${{ inputs.pr_number }}
+      INSTRUCTION: ${{ inputs.instruction }}
+      # Where the PR's JS went (job 6), echoed back as the channel to surf to.
+      UPDATE_CHANNEL: pr-${{ inputs.pr_number }}
+      UPDATE_GROUP_ID: ${{ needs.publish_update.outputs.first_update_group_id }}
+    outputs:
+      evidence_url: ${{ steps.verify.outputs.evidence_url }}
+      verdict: ${{ steps.verify.outputs.verdict }}
+      verdict_shown: ${{ steps.verify.outputs.verdict_shown }}
+      update_channel: ${{ steps.verify.outputs.update_channel }}
+      update_url: ${{ steps.verify.outputs.update_url }}
+    steps:
+      - uses: eas/checkout
+      # app.config.ts imports from expo/config; eas-cli can't read the
+      # project config until node_modules exist.
+      - uses: eas/use_npm_token
+      - uses: eas/install_node_modules
+      - id: verify
+        name: Drive the app, collect evidence, comment
+        run: |
+          set -euo pipefail
+          if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "pr_number input not interpolated; cannot continue."
+            exit 1
+          fi
+          bash scripts/agent/verify-on-simulator.sh
+
+  blocked:
+    name: 8. Verification failed
+    type: doc
+    # verify needs publish_update, so a failed publish skips verify; this
+    # note still lands then.
+    after: [verify, publish_update]
+    if: ${{ after.verify.status == 'failure' || after.publish_update.status == 'failure' }}
+    params:
+      md: |
+        # 🚫 Verification did not complete
+
+        The run failed before a clean verdict and evidence publish. A status
+        comment was posted on the PR; details are in the
+        "7. Verify on cloud simulator" job logs. If verify was skipped, the
+        "6. Publish PR JS to channel pr-N" job failed first and the PR got
+        no comment.
+
+  report:
+    name: 9. Verification report
+    type: doc
+    needs: [verify]
+    params:
+      md: |
+        # 🤖 Expo bot verification for PR #${{ inputs.pr_number }}
+
+        > ${{ needs.verify.outputs.verdict_shown }}
+
+        - 📡 **Channel**: `${{ needs.verify.outputs.update_channel }}` — surf to it from the Admin tab on any release build ([update group](${{ needs.verify.outputs.update_url }}))
+        - 🖼️ **[Evidence site](${{ needs.verify.outputs.evidence_url }})**: screenshots from the simulator run
+        - 💬 The code review and this verdict are comments on the PR.

@@ -1,0 +1,18 @@
+name: Clean up PR update branch
+
+on:
+  ref_delete:
+    branches:
+      - "**"
+      # Keep the long-lived branches.
+      - "!main"
+      - "!develop"
+      - "!preview"
+      - "!production"
+
+jobs:
+  delete_update_branch:
+    name: 1. Delete EAS Update branch for deleted git branch
+    type: branch-delete
+    params:
+      branch_name: ${{ github.ref_name }}

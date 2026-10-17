@@ -1,0 +1,82 @@
+# ──────────────────────────────────────────────────────────────────────
+# Release to TestFlight
+#
+# Builds an iOS store binary from this checkout and uploads it to
+# TestFlight. Use it for the first TestFlight release and whenever you
+# want a TestFlight build without waiting for a merge to main
+# (build-production.yml submits automatically after a native change).
+#
+#   1. fingerprint: hash the native code
+#   2. get-build:   is a store build with this fingerprint already there?
+#                   yes → nothing to upload; JS changes ship over the air
+#                        on the production channel (see the note job)
+#                   no  → build with the production profile and submit
+#
+# Run it:
+#   eas workflow:run release-testflight.yml
+#
+# One-time prerequisites (interactive, from your machine):
+#   eas credentials -p ios                 distribution cert + profile +
+#                                          App Store Connect API key
+#   eas build -p ios --profile production --submit
+#                                          first upload; creates the App
+#                                          Store Connect app record
+# ──────────────────────────────────────────────────────────────────────
+name: Release to TestFlight
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ workflow.filename }}-${{ github.ref }}
+  cancel_in_progress: false
+
+jobs:
+  fingerprint:
+    name: 1. Fingerprint native code
+    type: fingerprint
+    environment: production
+
+  get_build:
+    name: 2. Find a store build with this fingerprint
+    type: get-build
+    needs: [fingerprint]
+    params:
+      platform: ios
+      profile: production
+      distribution: store
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  build:
+    name: 3. Build iOS (store)
+    type: build
+    needs: [get_build]
+    if: ${{ !needs.get_build.outputs.build_id }}
+    params:
+      platform: ios
+      profile: production
+      message: TestFlight release
+
+  submit:
+    name: 4. Upload to TestFlight
+    type: submit
+    needs: [build]
+    params:
+      build_id: ${{ needs.build.outputs.build_id }}
+      profile: production
+
+  already_built:
+    name: 3. Nothing to upload
+    type: doc
+    needs: [get_build]
+    if: ${{ needs.get_build.outputs.build_id }}
+    params:
+      md: |
+        # ✅ TestFlight already has this native code
+
+        Store build `${{ needs.get_build.outputs.build_id }}` matches this
+        checkout's fingerprint, so a new upload would be identical native
+        code. JavaScript changes reach that build over the air on the
+        `production` channel: merge to `main` and approve the
+        build-production run.

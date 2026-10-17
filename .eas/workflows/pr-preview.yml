@@ -1,0 +1,65 @@
+# ──────────────────────────────────────────────────────────────────────
+# PR preview update
+#
+# Every pull request into develop or main gets an instantly testable
+# preview of its JavaScript:
+#
+#   1. checks:  type-check and lint the PR
+#   2. publish: publish the PR's JS as an EAS Update (no build needed)
+#   3. comment: post a QR code on the PR; scan it to load the update
+#
+# The update is published to an EAS branch named after the PR's git
+# branch, so pr-cleanup.yml removes it when the branch is deleted.
+# Companion: pr-development-build.yml posts the installable builds.
+# ──────────────────────────────────────────────────────────────────────
+name: PR preview update
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "**/*"
+      - "!**/*.md"
+      - "!.claude/**"
+      - "!.vscode/**"
+      - "!scripts/**"
+
+# A new push to the PR replaces the run for the previous push.
+concurrency:
+  group: ${{ workflow.filename }}-${{ github.ref }}
+  cancel_in_progress: true
+
+jobs:
+  checks:
+    name: 1. Type-check and lint
+    # Promotion PRs (develop -> main) skip the PR pipeline entirely; the
+    # push-to-main workflow covers them. Skipping the root job skips every
+    # job that `needs` it.
+    if: ${{ github.event.pull_request.head.ref != 'develop' }}
+    environment: preview
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npx expo lint
+
+  # Publishes only when checks pass, so broken code never gets a QR code.
+  publish:
+    name: 2. Publish preview update
+    type: update
+    environment: preview
+    needs: [checks]
+
+  comment:
+    name: 3. Post QR code on the PR
+    type: github-comment
+    needs: [publish]
+    params:
+      message: |-
+        ### 📱 Preview this PR's JavaScript
+
+        Published over the air, no build step. Scan the QR code and open it in a development build (install one from the development-builds comment above).
