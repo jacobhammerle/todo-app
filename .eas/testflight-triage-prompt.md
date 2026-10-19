@@ -5,8 +5,8 @@ src/components and the task store is src/state/todos.ts. You are in a
 checkout of the app, so you may read its source to map the report and
 the screenshots to a screen.
 
-A script consumes your answer. The LAST thing you write must be one JSON
-object, with nothing after it:
+A script reads your answer from a file named at the end of this prompt.
+Write one JSON object to that file, and nothing else:
 
 {
 "kind": "bug" | "feature",

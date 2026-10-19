@@ -3,7 +3,7 @@
 //
 //   1. fetch the submission with eas-cli (trigger id, else the newest)
 //   2. download its screenshots so the triage agent can look at them
-//   3. triage with Claude Code: bug vs feature, title, repro, guidance,
+//   3. triage with an agent: bug vs feature, title, repro, guidance,
 //      and whether an open testflight issue already reports it
 //   4. file the issue (labels: testflight + bug|enhancement) — or, for a
 //      duplicate, add the submission to the existing issue and stop
@@ -13,7 +13,7 @@
 //           BASE_BRANCH, an EXPO_TOKEN that can read the ASC API key
 // Optional: GH_REPO (owner/repo; default: package.json "repository"),
 //           ASC_FEEDBACK_ID (trigger context; may arrive uninterpolated),
-//           CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_API_KEY (agent triage)
+//           AGENT_AVAILABLE=1 from use_agent_token optional (agent triage)
 // Writes /tmp/testflight/result.json:
 //   { kind, issue_number, issue_url, run_url, duplicate }
 // For a duplicate, issue_number/url name the existing issue, run_url is
@@ -21,6 +21,12 @@
 // Logs go to stderr so stdout stays quiet for the calling shell.
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+
+// The mention that drives the bot: "botHandle" in package.json.
+const BOT =
+  process.env.BOT_HANDLE ||
+  JSON.parse(readFileSync("package.json", "utf8")).botHandle ||
+  "@expo-bot";
 
 const WORK = "/tmp/testflight";
 const SHOTS = `${WORK}/screenshots`;
@@ -199,45 +205,40 @@ const openIssuesSection = openIssues.length
   : "\n\n## Open TestFlight issues\n\n(none)\n";
 
 let triage = null;
-if (process.env.CLAUDE_CODE_OAUTH_TOKEN || process.env.ANTHROPIC_API_KEY) {
+if (process.env.AGENT_AVAILABLE === "1") {
+  const triageFile = "/tmp/testflight/triage.json";
+  const promptFile = "/tmp/testflight/triage-prompt.md";
   const prompt =
     readFileSync(".eas/testflight-triage-prompt.md", "utf8") +
     openIssuesSection +
-    `\n\n## Submission\n\n${facts}\n\nScreenshots saved locally (open with Read): ${
+    `\n\n## Submission\n\n${facts}\n\nScreenshots saved locally (open them to look): ${
       shotPaths.join(", ") || "none"
-    }\n`;
-  log("Running Claude triage agent...");
-  const run = spawnSync(
-    "npx",
+    }\n\nWrite the JSON object to ${triageFile}.\n`;
+  writeFileSync(promptFile, prompt);
+  rmSync(triageFile, { force: true });
+  log("Running the triage agent...");
+  // The result file is the contract; run-agent.sh ignores the CLI's exit code.
+  spawnSync(
+    "bash",
     [
-      "--yes",
-      "@anthropic-ai/claude-code@latest",
-      "-p",
-      prompt,
-      "--model",
-      "claude-sonnet-5",
+      "scripts/agent/run-agent.sh",
+      "run",
+      "--prompt-file",
+      promptFile,
+      "--profile",
+      "triage",
       "--max-turns",
       "20",
-      "--output-format",
-      "json",
-      "--allowedTools",
-      "Read,Glob,Grep",
+      "--timeout",
+      "6m",
     ],
-    {
-      encoding: "utf8",
-      timeout: 6 * 60 * 1000,
-      maxBuffer: 20 * 1024 * 1024,
-      stdio: ["ignore", "pipe", "inherit"],
-    },
+    { encoding: "utf8", stdio: "inherit" },
   );
   try {
-    const envelope = JSON.parse(run.stdout);
-    const text = String(envelope.result ?? "");
-    const match = text.match(/\{[\s\S]*\}/);
-    const parsed = JSON.parse(match[0]);
+    const parsed = JSON.parse(readFileSync(triageFile, "utf8"));
     if (parsed && typeof parsed === "object" && parsed.title) triage = parsed;
   } catch {
-    log("Triage agent returned no usable JSON; filing a plain issue.");
+    log("Triage agent wrote no usable JSON; filing a plain issue.");
   }
 }
 
@@ -361,7 +362,7 @@ if (duplicateOf) {
     ...(shotLinks.length ? [shotLinks.join(" "), ""] : []),
     triage?.summary ? oneLine(triage.summary) : null,
     "",
-    `_Posted by the ${workflowName} EAS workflow. Comment \`@expo-bot\` here to triage again._`,
+    `_Posted by the ${workflowName} EAS workflow. Comment \`${BOT}\` here to triage again._`,
   ]
     .filter((line) => line !== null)
     .join("\n");
@@ -458,7 +459,7 @@ _Verdict and evidence land here; ${
 } else {
   commentOn(`## 🤖 Agent triage
 
-⚠️ **Could not start the triage workflow.** The dispatch error is in the ${workflowName} run logs on EAS. Comment \`@expo-bot\` here to retry.
+⚠️ **Could not start the triage workflow.** The dispatch error is in the ${workflowName} run logs on EAS. Comment \`${BOT}\` here to retry.
 
 _Posted by the ${workflowName} EAS workflow._`);
   log("expo-bot-issue dispatch failed.");

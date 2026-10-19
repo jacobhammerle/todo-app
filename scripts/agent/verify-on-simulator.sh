@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Boots an EAS cloud simulator with the binary the workflow repacked (or
-# built) with this PR's JS, lets Claude Code verify the PR (screenshots
+# built) with this PR's JS, lets an agent verify the PR (screenshots
 # into evidence/), deploys the evidence to EAS Hosting, comments the result
 # on the PR, and emits step outputs.
 # Requires: BUILD_ID, PR_NUMBER, GITHUB_TOKEN, EXPO_TOKEN_SIMULATOR,
-#           CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY
+#           the agent runner's credentials (scripts/agent/run-agent.sh)
 # Optional: GH_REPO (owner/repo; default: package.json "repository")
 #           INSTRUCTION (reviewer guidance from the @expo-bot comment)
 #           BUILD_STATUS, REPACK_STATUS (upstream job statuses)
@@ -15,6 +15,7 @@ set -euo pipefail
 
 # shellcheck disable=SC1091
 . scripts/agent/comment-lib.sh
+BOT=$(bot_handle)
 APP_ID=$(app_id)
 # app.json owner + slug; used to build expo.dev links.
 EXPO_ACCOUNT=$(node -p "require('./app.json').expo.owner")
@@ -23,7 +24,7 @@ EVIDENCE_DIR="evidence"
 
 use_simulator_token
 require_env GITHUB_TOKEN "add a GitHub token with pull-request write access as a secret env var in the production EAS environment."
-use_claude_token
+use_agent_token
 # The session bills until stopped, and a run that dies before commenting
 # would leave the PR silent; the trap covers both. It is installed before
 # every remaining exit path, and it tells the truth: a reached verdict is
@@ -45,7 +46,7 @@ _Posted by the expo-bot-verify EAS workflow._" || true
     else
       node scripts/agent/gh.mjs comment "$PR_NUMBER" "## 🤖 Agent verification
 
-⚠️ **Verification errored before a verdict** — see the expo-bot-verify run logs on EAS, then comment \`@expo-bot review\` to retry.
+⚠️ **Verification errored before a verdict** — see the expo-bot-verify run logs on EAS, then comment \`${BOT} review\` to retry.
 
 _Posted by the expo-bot-verify EAS workflow._" || true
     fi
@@ -98,20 +99,15 @@ printf '\nThe PR under test is #%s: "%s".\n' "$PR_NUMBER" "$PR_TITLE" >> /tmp/ve
 printf '\nThe device udid for every argent command is: %s\n' "$UDID" >> /tmp/verify-prompt.md
 printf 'The app id (<app-id>) for every --bundleId flag is: %s\n' "$APP_ID" >> /tmp/verify-prompt.md
 if [ -n "${INSTRUCTION:-}" ]; then
-  printf '\nReviewer guidance for this run (from the @expo-bot comment): %s\n' "$INSTRUCTION" >> /tmp/verify-prompt.md
+  printf "\nReviewer guidance for this run (from the ${BOT} comment): %s\n" "$INSTRUCTION" >> /tmp/verify-prompt.md
 fi
 
-echo "Running Claude verifier..."
-# The verdict file is the contract; Claude's own exit code is not. timeout
-# is the hard backstop: a hung agent gets killed, leaves no verdict, and
-# the run fails closed.
-timeout 20m npx --yes @anthropic-ai/claude-code@latest \
-  -p "$(cat /tmp/verify-prompt.md)" \
-  --model claude-sonnet-5 \
-  --max-turns 120 \
-  --output-format stream-json --verbose \
-  --allowedTools "Bash(bash scripts/agent/argent.sh*),Read,Glob,Grep,Write" \
-  | node scripts/agent/claude-log-format.js || true
+echo "Running the verifier agent..."
+# The verdict file is the contract; the agent's exit code is not. The
+# timeout is the hard backstop: a hung agent is killed, leaves no verdict,
+# and the run fails closed.
+bash scripts/agent/run-agent.sh run --prompt-file /tmp/verify-prompt.md \
+  --profile simulator --max-turns 120 --timeout 20m
 
 if [ ! -s /tmp/verify-verdict.md ]; then
   echo "FAIL: verifier produced no verdict file (agent error, timeout, or runaway)." > /tmp/verify-verdict.md
@@ -135,7 +131,7 @@ echo "========================================="
 RUN_JSON=$(evidence_tool run "$EVIDENCE_DIR" --stop \
   --subject "PR #${PR_NUMBER}" \
   --verdict "$VERDICT_LINE" --verdict-file /tmp/verify-verdict.md \
-  --agent expo-bot --lane "PR #${PR_NUMBER}" --build-id "$BUILD_ID" \
+  --agent "${BOT#@}" --lane "PR #${PR_NUMBER}" --build-id "$BUILD_ID" \
   --deploy-alias "pr-${PR_NUMBER}-evidence" --json)
 EVIDENCE_URL=$(node -e "
   const last = process.argv[1].trim().split('\n').pop();

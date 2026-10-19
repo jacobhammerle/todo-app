@@ -83,7 +83,7 @@ Known UI pitfalls (verified on this app — read carefully):
 
 Rules:
 
-- Guidance from the @expo-bot comment (if given at the end of this
+- Guidance from the bot comment (if given at the end of this
   prompt) is binding: it may narrow the steps, name the screen, or supply
   missing reproduction details.
 - REPLICATED means you personally observed the reported problem on the

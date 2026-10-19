@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Boots an EAS cloud simulator with the binary the workflow repacked (or
-# built) with the base branch's JS, lets Claude Code try to replicate the
+# built) with the base branch's JS, lets an agent try to replicate the
 # reported issue (screenshots into evidence/),
 # deploys the evidence to EAS Hosting, then:
 #   REPLICATED     -> fix-issue.sh opens a PR; the issue gets verdict +
@@ -9,7 +9,7 @@
 #                     PR implements it
 #   NOT-REPLICATED -> the issue gets the reasoning + evidence link
 # Requires: BUILD_ID, ISSUE_NUMBER, BASE_BRANCH, GITHUB_TOKEN,
-#           EXPO_TOKEN_SIMULATOR, CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY
+#           EXPO_TOKEN_SIMULATOR, the agent runner's credentials (scripts/agent/run-agent.sh)
 # Optional: GH_REPO (owner/repo; default: package.json "repository")
 #           INSTRUCTION (guidance from the @expo-bot comment)
 #           BUILD_STATUS, REPACK_STATUS (upstream job statuses)
@@ -19,12 +19,13 @@ set -euo pipefail
 
 # shellcheck disable=SC1091
 . scripts/agent/comment-lib.sh
+BOT=$(bot_handle)
 APP_ID=$(app_id)
 EVIDENCE_DIR="evidence"
 
 use_simulator_token
 require_env GITHUB_TOKEN "add a GitHub token with issues, contents, and pull-request write access in the production EAS environment."
-use_claude_token
+use_agent_token
 
 # The session bills until stopped, and a run that dies before commenting
 # would leave the issue silent; the trap covers both. On the success path
@@ -49,7 +50,7 @@ _Posted by the expo-bot-issue EAS workflow._" || true
     else
       node scripts/agent/gh.mjs comment "$ISSUE_NUMBER" "## 🤖 Agent triage
 
-⚠️ **Triage errored before a verdict** — see the expo-bot-issue run logs on EAS, then comment \`@expo-bot\` here to retry.
+⚠️ **Triage errored before a verdict** — see the expo-bot-issue run logs on EAS, then comment \`${BOT}\` here to retry.
 
 _Posted by the expo-bot-issue EAS workflow._" || true
     fi
@@ -96,21 +97,16 @@ printf '\nThe issue under triage is #%s: "%s".\n' "$ISSUE_NUMBER" "$ISSUE_TITLE"
 printf '\nThe device udid for every argent command is: %s\n' "$UDID" >> /tmp/issue-prompt.md
 printf 'The app id (<app-id>) for every --bundleId flag is: %s\n' "$APP_ID" >> /tmp/issue-prompt.md
 if [ -n "${INSTRUCTION:-}" ]; then
-  printf '\nGuidance for this run (from the @expo-bot comment): %s\n' "$INSTRUCTION" >> /tmp/issue-prompt.md
+  printf "\nGuidance for this run (from the ${BOT} comment): %s\n" "$INSTRUCTION" >> /tmp/issue-prompt.md
 fi
 
-echo "Running Claude replicator..."
-# The verdict file is the contract; Claude's own exit code is not. timeout
-# is the hard backstop: a hung agent gets killed, leaves no verdict, and
-# the run reports inconclusive.
+echo "Running the replication agent..."
+# The verdict file is the contract; the agent's exit code is not. The
+# timeout is the hard backstop: a hung agent is killed, leaves no verdict,
+# and the run reports inconclusive.
 rm -f /tmp/issue-verdict.md
-timeout 20m npx --yes @anthropic-ai/claude-code@latest \
-  -p "$(cat /tmp/issue-prompt.md)" \
-  --model claude-sonnet-5 \
-  --max-turns 120 \
-  --output-format stream-json --verbose \
-  --allowedTools "Bash(bash scripts/agent/argent.sh*),Read,Glob,Grep,Write" \
-  | node scripts/agent/claude-log-format.js || true
+bash scripts/agent/run-agent.sh run --prompt-file /tmp/issue-prompt.md \
+  --profile simulator --max-turns 120 --timeout 20m
 
 if [ ! -s /tmp/issue-verdict.md ]; then
   echo "INCONCLUSIVE: the replicator produced no verdict (agent error, timeout, or runaway)." > /tmp/issue-verdict.md
@@ -134,7 +130,7 @@ echo "========================================="
 RUN_JSON=$(evidence_tool run "$EVIDENCE_DIR" --stop \
   --subject "Issue #${ISSUE_NUMBER}" \
   --verdict "$VERDICT_LINE" --verdict-file /tmp/issue-verdict.md \
-  --agent expo-bot --lane "Issue #${ISSUE_NUMBER}" --build-id "$BUILD_ID" \
+  --agent "${BOT#@}" --lane "Issue #${ISSUE_NUMBER}" --build-id "$BUILD_ID" \
   --deploy-alias "issue-${ISSUE_NUMBER}-evidence" --json)
 SESSION_STOPPED=1
 EVIDENCE_URL=$(node -e "
@@ -172,7 +168,7 @@ if [[ "$VERDICT_LINE" == REPLICATED* || "$VERDICT_LINE" == CONFIRMED* ]]; then
 - 🧪 **Verifying** — code review + a second cloud simulator; results and the PR's own update channel land on the PR ([run](${VERIFY_RUN_URL}))"
   elif [ -n "$PR_URL" ]; then
     VERIFY_LINE="
-- ⚠️ **Not verified** — comment \`@expo-bot\` on the PR to review and check it on a cloud simulator"
+- ⚠️ **Not verified** — comment \`${BOT}\` on the PR to review and check it on a cloud simulator"
   fi
 
   # Comment shape shared by every bot post: "## 🤖 <stage>", a verdict
@@ -241,7 +237,7 @@ ${REPORT}
 
 </details>
 
-_Posted by the expo-bot-issue EAS workflow. Missed something? Comment \`@expo-bot <hint>\` to retry._"
+_Posted by the expo-bot-issue EAS workflow. Missed something? Comment \`${BOT} <hint>\` to retry._"
 fi
 COMMENT_POSTED=1
 

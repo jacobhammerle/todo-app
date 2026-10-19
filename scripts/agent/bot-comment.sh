@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Posts one expo-bot bridge comment on the PR or issue, in the shape every
+# Posts one bridge comment on the PR or issue, in the shape every
 # bot post shares:
 #   ## <heading>
 #   <body>
-#   _<note> Posted by the expo-bot bridge for @<actor>._
+#   _<note> Posted by the <bot> bridge for @<actor>._
 #
 # Usage: bot-comment.sh "<heading>" "<body markdown>" ["<note>"]
 # Requires: ISSUE_NUMBER (PR or issue number), ACTOR (comment author),
@@ -17,7 +17,7 @@ NOTE="${3:-}"
 : "${ISSUE_NUMBER:?ISSUE_NUMBER is required}"
 : "${ACTOR:?ACTOR is required}"
 
-FOOTER="Posted by the expo-bot bridge for @${ACTOR}."
+FOOTER="Posted by the ${BOT_HANDLE:-$(node -p "require('./package.json').botHandle || '@expo-bot'")} bridge for @${ACTOR}."
 if [ -n "$NOTE" ]; then
   FOOTER="${NOTE} ${FOOTER}"
 fi

@@ -19,6 +19,7 @@ set -euo pipefail
 
 # shellcheck disable=SC1091
 . scripts/agent/comment-lib.sh
+BOT=$(bot_handle)
 
 PLATFORM="${PLATFORM:-ios}"
 DEVICE="${DEVICE:-}"
@@ -35,7 +36,7 @@ if [ -n "$DEVICE" ]; then
   DEVICE_LABEL="$DEVICE ($PLATFORM_LABEL)"
 fi
 # The retry hint mirrors the comment that started this run.
-RETRY_CMD="@expo-bot preview ${DURATION_MINUTES}"
+RETRY_CMD="${BOT} preview ${DURATION_MINUTES}"
 if [ "$PLATFORM" = "android" ]; then RETRY_CMD="$RETRY_CMD android"; fi
 if [ -n "$DEVICE" ]; then RETRY_CMD="$RETRY_CMD $DEVICE"; fi
 
@@ -49,7 +50,7 @@ cleanup() {
   if [ "$code" -ne 0 ] && [ -z "$COMMENT_POSTED" ]; then
     node scripts/agent/gh.mjs comment "$PR_NUMBER" "## 🤖 Live preview
 
-⚠️ **The $DEVICE_LABEL preview errored before it came alive** — details are in the pr-live-preview run logs on EAS. Comment \`$RETRY_CMD\` to try again, or \`@expo-bot preview\` for the default iOS device.
+⚠️ **The $DEVICE_LABEL preview errored before it came alive** — details are in the pr-live-preview run logs on EAS. Comment \`$RETRY_CMD\` to try again, or \`${BOT} preview\` for the default iOS device.
 
 _Posted by the pr-live-preview EAS workflow._" || true
   fi
@@ -140,7 +141,7 @@ node scripts/agent/gh.mjs comment "$PR_NUMBER" "## 🤖 Live preview
 This PR's app is installed and running on an EAS cloud $DEVICE_LABEL.
 
 ${DEVICE_LINE}- ⏱️ **Session length** — stops by itself after $DURATION_MINUTES minutes; stop it early with \`eas simulator:stop --id $SESSION_ID\`
-- 🔁 **Fresh session** — comment \`@expo-bot preview [minutes] [ios|android] [device]\` again, e.g. \`@expo-bot preview iPhone 16 Pro for 45\` or \`@expo-bot preview android pixel_7\`
+- 🔁 **Fresh session** — comment \`${BOT} preview [minutes] [ios|android] [device]\` again, e.g. \`${BOT} preview iPhone 16 Pro for 45\` or \`${BOT} preview android pixel_7\`
 
 _Posted by the pr-live-preview EAS workflow._"
 COMMENT_POSTED=1

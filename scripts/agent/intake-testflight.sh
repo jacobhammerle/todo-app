@@ -6,7 +6,7 @@
 #           read the project's App Store Connect API key)
 # Optional: GH_REPO (owner/repo; default: package.json "repository"),
 #           ASC_FEEDBACK_ID (trigger context),
-#           CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY (agent triage)
+#           the agent runner's credentials (agent triage; run-agent.sh)
 set -euo pipefail
 
 # shellcheck disable=SC1091
@@ -15,10 +15,8 @@ set -euo pipefail
 # preferred here too; the intake still runs on the worker's own token.
 use_simulator_token optional
 require_env GITHUB_TOKEN "add a GitHub token with issues write access as a secret env var in the production EAS environment."
-if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-  echo "No CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_API_KEY: filing a plain issue without agent triage."
-fi
-use_claude_token optional
+# Without agent credentials the issue is filed from the submission alone.
+use_agent_token optional
 
 node scripts/agent/intake-testflight.mjs
 

@@ -1,36 +1,32 @@
 #!/usr/bin/env bash
 # Applies the reviewer's @expo-bot instruction to the checked-out PR
-# branch: a Claude Code agent edits the code, a tsc gate must pass, and
+# branch: an agent edits the code, a tsc gate must pass, and
 # the result is committed and pushed to the PR head. Posts a summary
 # comment on the PR either way.
 # Requires: INSTRUCTION, PR_NUMBER, ACTOR, GH_TOKEN, GH_REPO,
-#           CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY (the bridge
+#           the agent runner's credentials (the bridge
 #           checks the secret and posts the missing-token comment first)
 set -euo pipefail
 
 # shellcheck disable=SC1091
 . scripts/agent/comment-lib.sh
+BOT=$(bot_handle)
 
 SUMMARY_FILE=/tmp/expo-bot-change-summary.md
 # bot-comment.sh posts on ISSUE_NUMBER; a PR is an issue to the API.
 export ISSUE_NUMBER="${ISSUE_NUMBER:-$PR_NUMBER}"
 
-use_claude_token
+use_agent_token
 
 rm -f "$SUMMARY_FILE"
 cp .eas/expo-bot-change-prompt.md /tmp/change-prompt.md
-printf '\nThe requested change (from the @expo-bot comment on PR #%s): %s\n' \
+printf "\nThe requested change (from the ${BOT} comment on PR #%s): %s\n" \
   "$PR_NUMBER" "$INSTRUCTION" >> /tmp/change-prompt.md
 
-echo "Running Claude change agent..."
-# The summary file is the contract; Claude's own exit code is not.
-timeout 10m npx --yes @anthropic-ai/claude-code@latest \
-  -p "$(cat /tmp/change-prompt.md)" \
-  --model claude-sonnet-5 \
-  --max-turns 60 \
-  --output-format stream-json --verbose \
-  --allowedTools "Edit,Write,Read,Glob,Grep,Bash(npx tsc --noEmit),Bash(npx expo lint)" \
-  | node scripts/agent/claude-log-format.js || true
+echo "Running the change agent..."
+# The summary file is the contract; the agent's exit code is not.
+bash scripts/agent/run-agent.sh run --prompt-file /tmp/change-prompt.md \
+  --profile fix --max-turns 60 --timeout 10m
 
 if [ -z "$(git status --porcelain)" ]; then
   REASON=$(cat "$SUMMARY_FILE" 2>/dev/null || echo "The agent gave no reason (error or timeout).")
@@ -50,11 +46,11 @@ SUMMARY_LINE=$(head -n 1 "$SUMMARY_FILE" 2>/dev/null || true)
 
 # The github-actions[bot] noreply address: commits show the bot avatar and
 # the address does not deliver mail.
-git config user.name "expo-bot"
+git config user.name "${BOT#@}"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 git add -A
-git commit -m "expo-bot: ${SUMMARY_LINE}" \
-  -m "Requested via an @expo-bot comment on PR #${PR_NUMBER}."
+git commit -m "${BOT#@}: ${SUMMARY_LINE}" \
+  -m "Requested via an ${BOT} comment on PR #${PR_NUMBER}."
 git push
 COMMIT_SHA=$(git rev-parse --short HEAD)
 

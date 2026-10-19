@@ -3,6 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "repository": "github:jacobhammerle/todo-app",
+  "botHandle": "@expo-bot",
   "license": "MIT",
   "engines": {
     "node": "^22.13.0 || ^24.3.0 || ^26.0.0 || >=27.0.0"

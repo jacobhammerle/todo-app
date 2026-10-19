@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dispatches the EAS workflow behind an @expo-bot mode and posts the
+# Dispatches the EAS workflow behind a bot-mention mode and posts the
 # status comment, or the failure comment when the dispatch does not start.
 #   full, review -> expo-bot-verify.yml  review the diff + verify on a cloud simulator
 #   preview      -> pr-live-preview.yml  a cloud simulator streamed to the browser
@@ -21,6 +21,7 @@ set -euo pipefail
 : "${ISSUE_NUMBER:?ISSUE_NUMBER is required}"
 : "${ACTOR:?ACTOR is required}"
 INSTRUCTION="${INSTRUCTION:-}"
+BOT=$(bot_handle)
 ACTION_RUN_URL="${ACTION_RUN_URL:-}"
 
 INPUTS=()
@@ -31,7 +32,7 @@ case "$MODE" in
     HEADING="🤖 Agent verification"
     STATUS="Reviewing the diff and checking this PR's app on an EAS cloud simulator"
     NOTE="Review, verdict, evidence, and this PR's \`pr-${ISSUE_NUMBER}\` update channel land here as they complete."
-    RETRY="@expo-bot review"
+    RETRY="${BOT} review"
     INPUTS=(--input "pr_number=${ISSUE_NUMBER}" --input "instruction=${INSTRUCTION}")
     ;;
   preview)
@@ -49,7 +50,7 @@ case "$MODE" in
     HEADING="🤖 Live preview"
     STATUS="Booting an ${TARGET_TEXT} with this PR's app (${DURATION}-minute session)"
     NOTE="The browser link lands here once the session is live."
-    RETRY="@expo-bot preview [minutes] [ios|android] [device]"
+    RETRY="${BOT} preview [minutes] [ios|android] [device]"
     INPUTS=(--input "pr_number=${ISSUE_NUMBER}" --input "duration_minutes=${DURATION}" --input "platform=${PLATFORM}")
     # The device input is only sent when set, so the workflow default applies otherwise.
     [ -n "$DEVICE" ] && INPUTS+=(--input "device=${DEVICE}")
@@ -61,7 +62,7 @@ case "$MODE" in
     HEADING="🤖 Agent triage"
     STATUS="Replicating the report on an EAS cloud simulator"
     NOTE="Verdict and evidence land here; if it replicates, a fix PR follows and is verified on a second simulator."
-    RETRY="@expo-bot"
+    RETRY="${BOT}"
     # auto_verify is the workflow default; passed explicitly so the
     # dispatch reads the same as the TestFlight intake's.
     INPUTS=(--input "issue_number=${ISSUE_NUMBER}" --input "instruction=${INSTRUCTION}" \

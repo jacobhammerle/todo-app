@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Claude Code reviews the PR diff and posts a review comment on the PR.
+# An agent reviews the PR diff and posts a review comment on the PR.
 # The workflow is dispatched from a comment, so there is no pull_request
 # context and the checkout may lack git metadata, so the diff comes from the
 # GitHub API instead of git.
 # Requires: PR_NUMBER, GITHUB_TOKEN,
-#           CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY
+#           the agent runner's credentials (scripts/agent/run-agent.sh)
 # Optional: GH_REPO (owner/repo; default: package.json "repository")
 set -euo pipefail
 
@@ -12,7 +12,7 @@ set -euo pipefail
 . scripts/agent/comment-lib.sh
 
 require_env GITHUB_TOKEN "add a GitHub token with pull-request write access as a secret env var in the production EAS environment."
-use_claude_token
+use_agent_token
 
 # A run that dies before commenting would leave the PR silent.
 COMMENT_POSTED=""
@@ -57,14 +57,10 @@ problem. Keep the whole review under 200 words.
 EOF
 )
 
-# The review file is the contract; Claude's own exit code is not.
-timeout 10m npx --yes @anthropic-ai/claude-code@latest \
-  -p "$PROMPT" \
-  --model claude-sonnet-5 \
-  --max-turns 40 \
-  --output-format stream-json --verbose \
-  --allowedTools "Read Write Glob Grep" \
-  | node scripts/agent/claude-log-format.js || true
+# The review file is the contract; the agent's exit code is not.
+printf '%s\n' "$PROMPT" > /tmp/review-prompt.md
+bash scripts/agent/run-agent.sh run --prompt-file /tmp/review-prompt.md \
+  --profile review --max-turns 40 --timeout 10m
 
 if [ ! -s /tmp/review.md ]; then
   echo "**Verdict:** ⚠️ Review errored: the reviewer produced no output. See the workflow logs." > /tmp/review.md

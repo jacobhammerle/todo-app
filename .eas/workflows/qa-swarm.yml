@@ -10,7 +10,7 @@
 #                   shared update channel, so PR runs never touch `preview`
 #   5. swarm:       3 iOS simulators (tasks, add, done) + 2 Android
 #                   emulators (tasks, add), each driven by a headless
-#                   Claude agent; a lane's job status IS its QA verdict
+#                   coding agent; a lane's job status IS its QA verdict
 #   6. stitch:      per-lane verdicts, timings (parallel vs serial wall
 #                   clock, device commands, device-minutes), evidence sites
 #                   at qa-<platform>-<flow>-evidence; with pr_number, one
@@ -25,7 +25,7 @@
 #
 # Env vars required (EAS environment variables, production environment):
 #   EXPO_TOKEN_SIMULATOR      personal access token (simulator is actor-gated)
-#   CLAUDE_CODE_OAUTH_TOKEN   from `claude setup-token` (or ANTHROPIC_API_KEY)
+#   agent credentials        the runner's variables (scripts/agent/runners/)
 #   GITHUB_TOKEN              PR comment (pr_number runs only)
 # GH_REPO (owner/repo) is read from package.json "repository"; an EAS env var
 # named GH_REPO overrides it.

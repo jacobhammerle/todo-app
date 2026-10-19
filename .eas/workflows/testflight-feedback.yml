@@ -5,7 +5,7 @@
 # feedback. App Store Connect fires this workflow, which:
 #
 #   1. fetch:    pull the submission (comment, tester, device, screenshots)
-#   2. triage:   a Claude agent reads the comment and the screenshots and
+#   2. triage:   an agent reads the comment and the screenshots and
 #                decides bug vs feature request, writes a title, repro
 #                steps, and one line of guidance for the replication agent
 #   3. file:     open a GitHub issue (labels: testflight + bug|enhancement)
@@ -26,7 +26,7 @@
 # Env vars required (EAS environment variables, production environment):
 #   EXPO_TOKEN_SIMULATOR      personal access token: reads the project's
 #                             ASC API key and dispatches expo-bot-issue
-#   CLAUDE_CODE_OAUTH_TOKEN   from `claude setup-token` (or ANTHROPIC_API_KEY)
+#   agent credentials        the runner's variables (scripts/agent/runners/)
 #   GITHUB_TOKEN              GitHub token with issues write
 # GH_REPO (owner/repo) is read from package.json "repository"; an EAS env var
 # named GH_REPO overrides it.

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Runs one QA swarm lane: boots its own EAS cloud simulator (iOS) or
 # emulator (Android) with the repacked or freshly built binary
-# preinstalled and launched (--build-id), lets a Claude Code agent
+# preinstalled and launched (--build-id), lets an agent
 # execute the flow in .eas/qa-flows/<FLOW>.md, deploys the screenshot
 # evidence to EAS Hosting at alias qa-<PLATFORM>-<FLOW>-evidence, emits
 # timing metrics, and exits with the verdict (PASS -> 0, else 1) so the
 # lane's job status mirrors the QA result.
 # Requires: BUILD_ID, FLOW, EXPO_TOKEN_SIMULATOR,
-#           CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY
+#           the agent runner's credentials (scripts/agent/run-agent.sh)
 # Optional: PLATFORM (ios | android; default ios)
 #           BUILD_STATUS, REPACK_STATUS (upstream job statuses)
 #           PR_NUMBER (names the session after the PR when set)
@@ -15,6 +15,7 @@ set -euo pipefail
 
 # shellcheck disable=SC1091
 . scripts/agent/comment-lib.sh   # eas (pinned), normalize_verdict, ...
+BOT=$(bot_handle)
 
 APP_ID=$(app_id)   # from app.json; the bundle id is also the Android package
 EVIDENCE_DIR="evidence"
@@ -39,7 +40,7 @@ if ! [[ "${PR_NUMBER:-}" =~ ^[0-9]+$ ]]; then PR_NUMBER=""; fi
 # from simulator:start until simulator:stop.
 T0=$(date +%s)
 use_simulator_token
-use_claude_token
+use_agent_token
 
 # The session bills until stopped; stop it on every exit path. Each lane
 # runs on its own worker, so the dotenv default targets this lane's
@@ -114,15 +115,10 @@ export ARGENT_CALL_LOG=/tmp/qa-argent-calls.log
 rm -f "$ARGENT_CALL_LOG"
 
 echo "Running QA agent for lane '${LANE}'..."
-# The verdict file is the contract; Claude's own exit code is not.
+# The verdict file is the contract; the agent's exit code is not.
 rm -f /tmp/qa-verdict.md
-timeout 10m npx --yes @anthropic-ai/claude-code@latest \
-  -p "$(cat /tmp/qa-prompt.md)" \
-  --model claude-sonnet-5 \
-  --max-turns 50 \
-  --output-format stream-json --verbose \
-  --allowedTools "Bash(bash scripts/agent/argent.sh*),Read,Write" \
-  | node scripts/agent/claude-log-format.js || true
+bash scripts/agent/run-agent.sh run --prompt-file /tmp/qa-prompt.md \
+  --profile simulator --max-turns 50 --timeout 10m
 T_VERDICT=$(date +%s)
 
 if [ ! -s /tmp/qa-verdict.md ]; then
@@ -164,7 +160,7 @@ echo "Metrics: $METRICS"
 RUN_JSON=$(evidence_tool run "$EVIDENCE_DIR" --stop \
   --subject "QA swarm · ${LANE_LABEL}" \
   --verdict "$VERDICT_LINE" --verdict-file /tmp/qa-verdict.md \
-  --agent expo-bot --lane "$LANE_LABEL" --build-id "$BUILD_ID" \
+  --agent "${BOT#@}" --lane "$LANE_LABEL" --build-id "$BUILD_ID" \
   --extra "metrics=${METRICS}" \
   --deploy-alias "qa-${LANE}-evidence" --json)
 EVIDENCE_URL=$(node -e "

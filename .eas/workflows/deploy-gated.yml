@@ -23,7 +23,7 @@
 #   eas workflow:run deploy-gated.yml [-F test_focus="..."] [-F keep_preview=true]
 # Env vars required (EAS environment variables, production environment):
 #   EXPO_TOKEN_SIMULATOR      personal access token (simulator is actor-gated)
-#   CLAUDE_CODE_OAUTH_TOKEN   from `claude setup-token` (or ANTHROPIC_API_KEY)
+#   agent credentials        the runner's variables (scripts/agent/runners/)
 # Agent instructions live in .eas/deploy-gate-prompt.md and the shared
 # helpers in scripts/agent/comment-lib.sh (EAS caps workflow YAML at 16 kB).
 # ──────────────────────────────────────────────────────────────────────
@@ -227,11 +227,11 @@ jobs:
         name: AI release gate — derive checks from the diff and run them
         run: |
           set -euo pipefail
-          . scripts/agent/comment-lib.sh   # eas, use_claude_token, use_simulator_token, normalize_verdict
+          . scripts/agent/comment-lib.sh   # eas, use_agent_token, use_simulator_token, normalize_verdict
 
-          # One Claude credential (the OAuth token wins when both are set);
-          # add it as an EAS environment variable alongside EXPO_TOKEN_SIMULATOR.
-          use_claude_token
+          # The agent runner's credentials, as EAS environment variables
+          # alongside EXPO_TOKEN_SIMULATOR (scripts/agent/run-agent.sh).
+          use_agent_token
           use_simulator_token optional
 
           # On unexpected failure, stop the session — unless keep_preview wants
@@ -252,17 +252,12 @@ jobs:
             printf '\nOperator guidance for this run: %s\n' "$TEST_FOCUS" >> /tmp/gate-prompt.md
           fi
 
-          echo "Running Claude release gate..."
-          # The verdict file is the contract; Claude's own exit code is not the
-          # gate. timeout is the hard backstop — a hung/runaway agent gets
-          # killed, leaves no verdict, and the gate fails closed.
-          timeout 20m npx --yes @anthropic-ai/claude-code@latest \
-            -p "$(cat /tmp/gate-prompt.md)" \
-            --model claude-sonnet-5 \
-            --max-turns 120 \
-            --output-format stream-json --verbose \
-            --allowedTools "Bash(npx --yes eas-cli@${EAS_CLI_VERSION} simulator:exec*),Read,Glob,Grep,Write" \
-            | node scripts/agent/claude-log-format.js || true
+          echo "Running the release gate agent..."
+          # The verdict file is the contract; the agent's exit code is not the
+          # gate. The timeout is the hard backstop: a hung agent is killed,
+          # leaves no verdict, and the gate fails closed.
+          bash scripts/agent/run-agent.sh run --prompt-file /tmp/gate-prompt.md \
+            --profile gate --max-turns 120 --timeout 20m
 
           if [ ! -s /tmp/gate-verdict.md ]; then
             echo "FAIL: verifier produced no verdict file (agent error, timeout, or runaway)." > /tmp/gate-verdict.md
@@ -319,7 +314,7 @@ jobs:
 
         The update reached **preview only**; verification failed, so production
         was **not** touched and users are unaffected. See the "AI release gate"
-        step logs for Claude's verdict (or the "Boot simulator" logs if the run
+        step logs for the agent's verdict (or the "Boot simulator" logs if the run
         failed earlier).
 
   report:
@@ -335,7 +330,7 @@ jobs:
         1. The OTA bundle was published to **preview**.
         2. A cloud simulator installed the fingerprint-matched binary and pulled
            that exact update over the air.
-        3. Claude derived checks from the release diff and verified them on the
+        3. The agent derived checks from the release diff and verified them on the
            device — full narrative in the "AI release gate" step logs.
         4. The **same update group** was republished to **production** —
            byte-identical, no rebuild.

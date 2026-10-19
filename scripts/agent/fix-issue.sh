@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Runs after an issue is REPLICATED on the cloud simulator: clones the
-# base branch, lets a Claude Code agent write a minimal fix, gates it with
+# base branch, lets an agent write a minimal fix, gates it with
 # tsc, pushes expo-bot/issue-N, and opens a PR that closes the issue.
 # Writes the PR URL to /tmp/fix-pr-url; an empty file means no fix was
 # made (the reason is in /tmp/fix-summary.md). With AUTO_VERIFY=true it
 # also dispatches expo-bot-verify.yml on the PR and writes the run URL to
 # /tmp/fix-verify-run-url.
 # Requires: ISSUE_NUMBER, BASE_BRANCH, GITHUB_TOKEN, EVIDENCE_URL,
-#           VERDICT_LINE, CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY
+#           VERDICT_LINE, the agent runner's credentials (scripts/agent/run-agent.sh)
 # Optional: AUTO_VERIFY (default true; "false" skips the verify dispatch),
 #           EXPO_TOKEN (needed to dispatch the verify run),
 #           GH_REPO (owner/repo; default: package.json "repository")
@@ -17,10 +17,11 @@ set -euo pipefail
 ORIG_DIR=$(pwd)
 # shellcheck disable=SC1091
 . "$ORIG_DIR/scripts/agent/comment-lib.sh"
+BOT=$(bot_handle)
 GH_REPO=$(repo_slug)
 export GH_REPO
 FIX_DIR=/tmp/fix-repo
-FIX_BRANCH="expo-bot/issue-${ISSUE_NUMBER}"
+FIX_BRANCH="${BOT#@}/issue-${ISSUE_NUMBER}"
 : > /tmp/fix-pr-url
 : > /tmp/fix-verify-run-url
 rm -rf "$FIX_DIR" /tmp/fix-summary.md
@@ -38,17 +39,12 @@ echo "node_modules" >> "$FIX_DIR/.git/info/exclude"
 cp .eas/expo-bot-fix-prompt.md /tmp/fix-prompt.md
 printf '\nThe issue under fix is #%s on %s.\n' "$ISSUE_NUMBER" "$GH_REPO" >> /tmp/fix-prompt.md
 
-use_claude_token
-echo "Running Claude fix agent..."
+use_agent_token
+echo "Running the fix agent..."
 cd "$FIX_DIR"
-# The summary file is the contract; Claude's own exit code is not.
-timeout 10m npx --yes @anthropic-ai/claude-code@latest \
-  -p "$(cat /tmp/fix-prompt.md)" \
-  --model claude-sonnet-5 \
-  --max-turns 80 \
-  --output-format stream-json --verbose \
-  --allowedTools "Edit,Write,Read,Glob,Grep,Bash(npx tsc --noEmit),Bash(npx expo lint)" \
-  | node "$ORIG_DIR/scripts/agent/claude-log-format.js" || true
+# The summary file is the contract; the agent's exit code is not.
+bash "$ORIG_DIR/scripts/agent/run-agent.sh" run --prompt-file /tmp/fix-prompt.md \
+  --profile fix --max-turns 80 --timeout 10m
 
 if [ -z "$(git status --porcelain)" ]; then
   echo "Fix agent made no change; the reason (if given) is in /tmp/fix-summary.md."
@@ -71,12 +67,12 @@ DETAILS=$(tail -n +2 /tmp/fix-summary.md 2>/dev/null | sed '/./,$!d' || true)
 
 # The github-actions[bot] noreply address: commits show the bot avatar and
 # the address does not deliver mail.
-git config user.name "expo-bot"
+git config user.name "${BOT#@}"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 git checkout -b "$FIX_BRANCH"
 git add -A
-git commit -m "expo-bot: ${SUMMARY_LINE}" \
-  -m "Fixes #${ISSUE_NUMBER}. Replicated on an EAS cloud simulator, then fixed, via an @expo-bot issue comment."
+git commit -m "${BOT#@}: ${SUMMARY_LINE}" \
+  -m "Fixes #${ISSUE_NUMBER}. Replicated on an EAS cloud simulator, then fixed, via an ${BOT} issue comment."
 # The branch is bot-owned: force push so re-triaging the issue replaces it.
 git push --force origin "$FIX_BRANCH"
 
@@ -110,7 +106,7 @@ fi
 if [ "${AUTO_VERIFY:-true}" != "false" ]; then
   NEXT_LINE="**Posted below as they complete:** code review · agent verification on a second cloud simulator · this PR's own \`pr-<number>\` update channel to surf to from the Admin tab."
 else
-  NEXT_LINE="**Not verified yet:** comment \`@expo-bot\` on this PR for a code review and a cloud-simulator check."
+  NEXT_LINE="**Not verified yet:** comment \`${BOT}\` on this PR for a code review and a cloud-simulator check."
 fi
 
 # Same shape as every bot post: "## 🤖 <stage>", bold label lines, the
@@ -119,7 +115,7 @@ PR_BODY="## 🤖 Automated ${KIND_WORD} for #${ISSUE_NUMBER}
 
 **Issue:** #${ISSUE_NUMBER} ${ISSUE_TITLE}
 **Replication verdict:** $(verdict_badge "$VERDICT_LINE")
-**Evidence:** [screenshots](${EVIDENCE_URL}) — an agent ${DID_WORD} on an EAS cloud simulator; Claude Code wrote the ${KIND_WORD}; \`tsc\` and lint pass
+**Evidence:** [screenshots](${EVIDENCE_URL}) — an agent ${DID_WORD} on an EAS cloud simulator; an agent wrote the ${KIND_WORD}; \`tsc\` and lint pass
 
 ${THUMBS}
 
@@ -143,7 +139,7 @@ if [ "${AUTO_VERIFY:-true}" != "false" ]; then
   # A dispatch failure is reported, not fatal: the PR still exists and a
   # human can comment @expo-bot on it.
   echo "Dispatching expo-bot-verify on PR #$PR_NUMBER..."
-  VERIFY_INSTRUCTION=$(printf 'This PR was opened by expo-bot for issue #%s (%s). Verify that behavior specifically: %s' \
+  VERIFY_INSTRUCTION=$(printf "This PR was opened by ${BOT} for issue #%s (%s). Verify that behavior specifically: %s" \
     "$ISSUE_NUMBER" "$ISSUE_TITLE" "$VERDICT_LINE")
   VERIFY_OUT=$(eas workflow:run .eas/workflows/expo-bot-verify.yml \
     --input "pr_number=${PR_NUMBER}" \

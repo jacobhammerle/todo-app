@@ -5,7 +5,7 @@
 #   verdict_badge "<verdict line>"        -> the line with a leading status emoji
 #   evidence_thumbs <dir> <site_url>      -> an HTML row of screenshot thumbnails
 # plus the helpers every simulator-driving script shares: eas, require_env,
-# require_build, use_simulator_token, use_claude_token, wait_for_session,
+# require_build, use_simulator_token, use_agent_token, wait_for_session,
 # json_field, load_argent_session, argent_device, wait_for_home, cap_diff,
 # fmt_dur (defined below).
 # Every bot post shares one layout: "## 🤖 <stage>", a bold Verdict or
@@ -27,6 +27,13 @@ evidence_tool() { npx --no-install eas-simulator-evidence "$@"; }
 #   repo_slug -> "owner/repo": GH_REPO when set, else package.json "repository"
 app_id() { node -p "require('./app.json').expo.ios.bundleIdentifier"; }
 repo_slug() { node scripts/agent/gh.mjs repo; }
+# bot_handle -> the mention that drives the bot ("@expo-bot" by default).
+# One spot to change it: "botHandle" in package.json. BOT_HANDLE in the
+# environment overrides it (the bridge passes the parsed value along).
+bot_handle() {
+  if [ -n "${BOT_HANDLE:-}" ]; then printf '%s' "$BOT_HANDLE"; return; fi
+  node -p "require('./package.json').botHandle || '@expo-bot'"
+}
 
 # Line 1 of a verdict file decides the lane result, and agents do not
 # always write it cleanly. Seen so far:
@@ -109,17 +116,21 @@ use_simulator_token() {
   fi
 }
 
-# use_claude_token [optional] -> one Claude credential must be present
-# (unless "optional"), and the OAuth token wins. Seen in practice: a
-# rejected ANTHROPIC_API_KEY beside a valid CLAUDE_CODE_OAUTH_TOKEN took
-# every QA swarm lane down (401), because Claude Code uses the API key
-# when both are set.
-use_claude_token() {
-  if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ] && [ "${1:-}" != "optional" ]; then
-    echo "Neither CLAUDE_CODE_OAUTH_TOKEN nor ANTHROPIC_API_KEY is set."
-    exit 1
+# use_agent_token [optional] -> the agent runner's credentials must be
+# present (scripts/agent/run-agent.sh check, which knows the runner's
+# variable names). With "optional", AGENT_AVAILABLE is exported as 1 or 0
+# instead of failing, so a caller can skip the agent step.
+use_agent_token() {
+  if [ "${1:-}" = "optional" ]; then
+    if bash scripts/agent/run-agent.sh check optional; then
+      export AGENT_AVAILABLE=1
+    else
+      export AGENT_AVAILABLE=0
+      echo "No agent credentials: the agent step is skipped."
+    fi
+    return 0
   fi
-  if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then unset ANTHROPIC_API_KEY; fi
+  bash scripts/agent/run-agent.sh check
 }
 
 # start_simulator_session <simulator:start args...> -> up to three attempts
