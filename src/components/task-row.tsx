@@ -17,7 +17,10 @@ function describe(todo: Todo) {
     .join(" · ");
 }
 
-/** A task row. Tapping the row or its check toggles the task. */
+/**
+ * A task row. Tapping the row or its check toggles the task.
+ * `onDelete`, when provided, adds a swipe-to-delete action (iOS only today).
+ */
 export function TaskRow({
   todo,
   showDate = false,
@@ -26,6 +29,7 @@ export function TaskRow({
   todo: Todo;
   showDate?: boolean;
   onToggle: (id: string, done: boolean) => void;
+  onDelete?: (id: string) => void;
 }) {
   const colors = useTheme();
   const toggle = () => onToggle(todo.id, !todo.done);

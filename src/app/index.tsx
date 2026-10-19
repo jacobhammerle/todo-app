@@ -20,7 +20,7 @@ import { TaskRow } from "@/components/task-row";
 import { describeInstallation } from "@/components/update-monitor";
 import { BrandColor, MonoFont } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
-import { addTodo, toggleTodo, useTodos } from "@/state/todos";
+import { addTodo, deleteTodo, toggleTodo, useTodos } from "@/state/todos";
 
 export default function TasksScreen() {
   const { markInteractive } = useObserve();
@@ -103,7 +103,12 @@ export default function TasksScreen() {
             </ListItem>
           ) : (
             active.map((todo) => (
-              <TaskRow key={todo.id} todo={todo} onToggle={toggleTodo} />
+              <TaskRow
+                key={todo.id}
+                todo={todo}
+                onToggle={toggleTodo}
+                onDelete={deleteTodo}
+              />
             ))
           )}
           {completed.length === 0 ? (
