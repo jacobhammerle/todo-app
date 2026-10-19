@@ -1,4 +1,4 @@
-# Expo Demo App
+# Agentic Workflows + Cloud Simulators Powered by Expo
 
 A demo of agentic workflows on EAS. [EAS Workflows](https://docs.expo.dev/eas/workflows/get-started/) hand work to coding agents, the agents drive the app on [EAS Simulators](https://docs.expo.dev/eas/simulators/) in the cloud, and every step leaves a verdict and screenshots on GitHub.
 
@@ -42,6 +42,38 @@ flowchart LR
     B --> D[Apply the change, then verify on a cloud simulator]
     B --> E[Live preview in the browser, streamed from a cloud simulator]
     B --> F[Issue: reproduce on a cloud simulator, fix, verify on a cloud simulator]
+```
+
+## QA Swarm
+
+One command tests the whole app at once. Five agents each get their own [EAS Simulator](https://docs.expo.dev/eas/simulators/) in the cloud and one short flow to check, so a full pass takes as long as the slowest lane instead of five flows in a row. Every verdict comes with screenshots.
+
+```bash
+eas workflow:run qa-swarm.yml -F pr_number=<n>
+```
+
+1. **A fingerprint picks the builds.** A [fingerprint](https://docs.expo.dev/eas/workflows/pre-packaged-jobs/#fingerprint) check finds a preview build per platform whose native code matches this checkout, or builds one when native code changed.
+2. **The current JavaScript goes in.** A found build still carries the JavaScript it was built with, so a [repack](https://docs.expo.dev/eas/workflows/pre-packaged-jobs/#repack) swaps in this checkout's. No update channel is touched, so a run on a PR never changes what `preview` testers see.
+3. **Five lanes run at the same time.** Three iOS simulators and two Android emulators boot, each driven by a headless coding agent with one flow: toggle a task on the Tasks tab, add a task, or complete one and clear history on the Done tab. The agent reads the accessibility tree, taps through the flow, screenshots each step, and writes a verdict. A lane's job status is its verdict. This example spins up 5 at once but you could easily spin up 50 at once if you would like.
+4. **One report stitches the swarm together.** Lane verdicts, timings (parallel against serial), device minutes, and the [evidence](https://github.com/jacobhammerle/eas-simulator-evidence) sites land on the run's report page, and as one PR comment with thumbnails when you pass a PR number.
+
+The flows are short Markdown files in [.eas/qa-flows/](.eas/qa-flows/), one per lane, and a `<flow>.<platform>.md` file overrides one platform. Add a lane by adding a flow and a job in [qa-swarm.yml](.eas/workflows/qa-swarm.yml). The Admin tab is left out on purpose: switching channels there would reload the app out from under the agent.
+
+<br>
+
+```mermaid
+flowchart LR
+    A[eas workflow:run qa-swarm.yml] --> B[Fingerprint-matched builds, repacked with this JS]
+    B --> C[iOS: Tasks]
+    B --> D[iOS: Add]
+    B --> E[iOS: Done]
+    B --> F[Android: Tasks]
+    B --> G[Android: Add]
+    C --> H[One report: verdicts, timings, screenshots]
+    D --> H
+    E --> H
+    F --> H
+    G --> H
 ```
 
 ## Try it on your own project
