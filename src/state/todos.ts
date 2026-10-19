@@ -90,6 +90,14 @@ export function toggleTodo(id: string, done: boolean) {
   }
 }
 
+/** Removes a single task for good. */
+export function deleteTodo(id: string) {
+  const target = todos.find((todo) => todo.id === id);
+  if (!target) return;
+  update(todos.filter((todo) => todo.id !== id));
+  Observe.logEvent("todo.deleted", { attributes: { id } });
+}
+
 /** Removes every completed task for good. */
 export function clearCompleted() {
   const count = todos.filter((todo) => todo.done).length;
