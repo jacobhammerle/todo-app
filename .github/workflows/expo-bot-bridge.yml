@@ -79,12 +79,15 @@ jobs:
     steps:
       # Just enough of the default branch to read the mention and parse the
       # comment; the PR head is checked out below once the comment is ours.
+      # Cone mode (the default) includes the root files, so package.json
+      # comes along. Non-cone mode must not be used here: the action sets
+      # core.sparseCheckout in the main git config for it, and the second
+      # checkout's `git sparse-checkout disable` only clears the worktree
+      # config, so the PR checkout stays sparse and setup-node finds no
+      # lockfile.
       - uses: actions/checkout@v5
         with:
-          sparse-checkout: |
-            package.json
-            scripts/agent/parse-bot-comment.sh
-          sparse-checkout-cone-mode: false
+          sparse-checkout: scripts/agent
 
       - name: Parse the mode and instruction
         id: parse
