@@ -1,15 +1,17 @@
 /**
  * Generates the app icon set from a single SVG design.
  *
- * Outputs (all 1024x1024 PNG, in assets/images/):
- *   icon.png                          iOS/root icon, production (no badge)
- *   icon-local.png                    iOS/root icon, LOCAL ribbon
- *   icon-develop.png                  iOS/root icon, DEV ribbon
- *   android-icon-background.png       adaptive-icon background (gradient)
- *   android-icon-foreground.png       adaptive-icon foreground, production
- *   android-icon-foreground-local.png
- *   android-icon-foreground-develop.png
- *   android-icon-monochrome.png       adaptive-icon monochrome (no badge)
+ * Outputs (in assets/images/):
+ *   icon.png                          iOS/root icon, production (no badge)   1024
+ *   icon-local.png                    iOS/root icon, LOCAL ribbon            1024
+ *   icon-develop.png                  iOS/root icon, DEV ribbon              1024
+ *   android-icon-background.png       adaptive-icon background (gradient)    1024
+ *   android-icon-foreground.png       adaptive-icon foreground, production   1024
+ *   android-icon-foreground-local.png                                        1024
+ *   android-icon-foreground-develop.png                                      1024
+ *   android-icon-monochrome.png       adaptive-icon monochrome (no badge)    1024
+ *   splash-icon.png                   splash glyph on transparent            512
+ *   favicon.png                       web favicon, rounded                   128
  *
  * Run: node scripts/generate-app-icons.mjs
  */
@@ -29,35 +31,84 @@ const OUT_DIR = path.join(
 const SIZE = 1024;
 const FONT = `-apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif`;
 
-const GRADIENT = `
-  <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0" stop-color="#45A5F7"/>
-    <stop offset="1" stop-color="#0E63B8"/>
-  </linearGradient>`;
+// Shared paints and filters. The background is a diagonal blue gradient
+// with a soft highlight in the top-left and a gentle vignette at the
+// bottom, so the icon reads as lit rather than flat.
+const DEFS = `
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#5FB9FF"/>
+    <stop offset="0.55" stop-color="#2A8BE8"/>
+    <stop offset="1" stop-color="#0A4FA3"/>
+  </linearGradient>
+  <radialGradient id="glow" cx="0.18" cy="0.10" r="0.95">
+    <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+    <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="vignette" cx="0.5" cy="1.05" r="0.9">
+    <stop offset="0.45" stop-color="#001F45" stop-opacity="0"/>
+    <stop offset="1" stop-color="#001F45" stop-opacity="0.35"/>
+  </radialGradient>
+  <linearGradient id="check" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#4ADE80"/>
+    <stop offset="1" stop-color="#16A34A"/>
+  </linearGradient>
+  <linearGradient id="box" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#4FA9F7"/>
+    <stop offset="1" stop-color="#1F78D8"/>
+  </linearGradient>
+  <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#FFFFFF"/>
+    <stop offset="1" stop-color="#F2F7FC"/>
+  </linearGradient>
+  <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+    <feDropShadow dx="0" dy="26" stdDeviation="26" flood-color="#04244C" flood-opacity="0.38"/>
+  </filter>
+  <filter id="shadowSoft" x="-30%" y="-30%" width="160%" height="170%">
+    <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#04244C" flood-opacity="0.22"/>
+  </filter>`;
 
-// To-do list glyph, drawn in 1024 space (spans roughly x 232-792, y 232-792):
-// a white card with three rows, the last one ticked.
+// Row geometry in 1024 space, shared by the colour glyph and the monochrome mask.
+const ROWS = [
+  { cy: 372, line: 300, done: false },
+  { cy: 512, line: 220, done: false },
+  { cy: 652, line: 260, done: true },
+];
+const BOX = { x: 304, size: 76, rx: 22, stroke: 16 };
+const LINE = { x: 424, h: 30, rx: 15 };
+
+function rowShapes({ colour }) {
+  return ROWS.map(({ cy, line, done }) => {
+    const bx = BOX.x;
+    const by = cy - BOX.size / 2;
+    const box = done
+      ? colour
+        ? `<rect x="${bx}" y="${by}" width="${BOX.size}" height="${BOX.size}" rx="${BOX.rx}" fill="url(#check)" filter="url(#shadowSoft)"/>
+           <path d="M ${bx + 20} ${cy + 2} L ${bx + 33} ${cy + 15} L ${bx + 57} ${cy - 13}" fill="none" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>`
+        : `<rect x="${bx}" y="${by}" width="${BOX.size}" height="${BOX.size}" rx="${BOX.rx}" fill="#000000"/>`
+      : `<rect x="${bx + BOX.stroke / 2}" y="${by + BOX.stroke / 2}" width="${BOX.size - BOX.stroke}" height="${BOX.size - BOX.stroke}" rx="${BOX.rx - BOX.stroke / 2}" fill="none" stroke="${colour ? "url(#box)" : "#000000"}" stroke-width="${BOX.stroke}"/>`;
+    const lineFill = colour ? (done ? "#D9E4F0" : "#C3D2E3") : "#000000";
+    return `${box}
+      <rect x="${LINE.x}" y="${cy - LINE.h / 2}" width="${line}" height="${LINE.h}" rx="${LINE.rx}" fill="${lineFill}"/>`;
+  }).join("\n");
+}
+
+// The glyph: a second sheet tucked behind, then the front card with its
+// shadow, then three rows with the last one ticked.
+const CARD = { x: 212, y: 212, w: 600, h: 600, rx: 100 };
 const GLYPH = `
   <g>
-    <!-- card -->
-    <rect x="232" y="232" width="560" height="560" rx="56" fill="#FFFFFF"/>
-    <!-- row 1: empty circle + line -->
-    <circle cx="340" cy="372" r="34" fill="none" stroke="#2F97F4" stroke-width="18"/>
-    <rect x="412" y="358" width="300" height="28" rx="14" fill="#C9D6E4"/>
-    <!-- row 2: empty circle + line -->
-    <circle cx="340" cy="512" r="34" fill="none" stroke="#2F97F4" stroke-width="18"/>
-    <rect x="412" y="498" width="240" height="28" rx="14" fill="#C9D6E4"/>
-    <!-- row 3: ticked circle + struck line -->
-    <circle cx="340" cy="652" r="34" fill="#22C55E"/>
-    <path d="M 322 652 L 335 665 L 360 638" fill="none" stroke="#FFFFFF" stroke-width="12"
-      stroke-linecap="round" stroke-linejoin="round"/>
-    <rect x="412" y="638" width="270" height="28" rx="14" fill="#E3ECF5"/>
+    <g transform="rotate(-8 512 512)">
+      <rect x="${CARD.x + 8}" y="${CARD.y + 8}" width="${CARD.w - 16}" height="${CARD.h - 16}" rx="${CARD.rx - 8}"
+        fill="#FFFFFF" fill-opacity="0.30"/>
+    </g>
+    <rect x="${CARD.x}" y="${CARD.y}" width="${CARD.w}" height="${CARD.h}" rx="${CARD.rx}" fill="url(#paper)" filter="url(#shadow)"/>
+    ${rowShapes({ colour: true })}
   </g>`;
 
 function ribbon(text) {
   if (!text) return "";
   return `
-  <rect x="0" y="848" width="1024" height="176" fill="#0A2E52"/>
+  <rect x="0" y="848" width="1024" height="176" fill="#082A4F"/>
   <text x="512" y="936" text-anchor="middle" dominant-baseline="central"
     font-family="${FONT}" font-size="120" font-weight="800" letter-spacing="14"
     fill="#FFFFFF">${text}</text>`;
@@ -67,19 +118,25 @@ function pill(text) {
   if (!text) return "";
   const width = text.length <= 3 ? 340 : 640;
   return `
-  <rect x="${512 - width / 2}" y="760" width="${width}" height="150" rx="75" fill="#0A2E52"/>
+  <rect x="${512 - width / 2}" y="760" width="${width}" height="150" rx="75" fill="#082A4F"/>
   <text x="512" y="835" text-anchor="middle" dominant-baseline="central"
     font-family="${FONT}" font-size="96" font-weight="800" letter-spacing="10"
     fill="#FFFFFF">${text}</text>`;
 }
 
-const svgHeader = `<svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg">`;
+const svgHeader = (viewBox = `0 0 ${SIZE} ${SIZE}`) =>
+  `<svg width="${SIZE}" height="${SIZE}" viewBox="${viewBox}" xmlns="http://www.w3.org/2000/svg">`;
 
-// Full-bleed icon for iOS / root: gradient background + glyph + bottom ribbon.
+const BACKGROUND = `
+  <rect width="${SIZE}" height="${SIZE}" fill="url(#bg)"/>
+  <rect width="${SIZE}" height="${SIZE}" fill="url(#glow)"/>
+  <rect width="${SIZE}" height="${SIZE}" fill="url(#vignette)"/>`;
+
+// Full-bleed icon for iOS / root: background + glyph + bottom ribbon.
 function fullIcon(badgeText) {
-  return `${svgHeader}
-    <defs>${GRADIENT}</defs>
-    <rect width="${SIZE}" height="${SIZE}" fill="url(#bg)"/>
+  return `${svgHeader()}
+    <defs>${DEFS}</defs>
+    ${BACKGROUND}
     ${GLYPH}
     ${ribbon(badgeText)}
   </svg>`;
@@ -89,9 +146,9 @@ function fullIcon(badgeText) {
 function adaptiveForeground(badgeText) {
   const scale = 0.58;
   const offset = (SIZE * (1 - scale)) / 2;
-  // Nudge up slightly when a badge pill extends the composition downward.
   const dy = badgeText ? -30 : 20;
-  return `${svgHeader}
+  return `${svgHeader()}
+    <defs>${DEFS}</defs>
     <g transform="translate(${offset}, ${offset + dy}) scale(${scale})">
       ${GLYPH}
       ${pill(badgeText)}
@@ -99,33 +156,45 @@ function adaptiveForeground(badgeText) {
   </svg>`;
 }
 
-// Adaptive background: just the gradient.
-const adaptiveBackground = `${svgHeader}
-  <defs>${GRADIENT}</defs>
-  <rect width="${SIZE}" height="${SIZE}" fill="url(#bg)"/>
+// Adaptive background: just the lit gradient.
+const adaptiveBackground = `${svgHeader()}
+  <defs>${DEFS}</defs>
+  ${BACKGROUND}
 </svg>`;
 
-// Monochrome: white alpha silhouette of the card, rows cut out via mask.
-const monochrome = `${svgHeader}
+// Monochrome: white alpha silhouette of the front card, rows cut out via mask.
+const monochrome = `${svgHeader()}
   <defs>
     <mask id="cut">
       <rect width="${SIZE}" height="${SIZE}" fill="#FFFFFF"/>
-      <circle cx="340" cy="372" r="34" fill="none" stroke="#000000" stroke-width="18"/>
-      <rect x="412" y="358" width="300" height="28" rx="14" fill="#000000"/>
-      <circle cx="340" cy="512" r="34" fill="none" stroke="#000000" stroke-width="18"/>
-      <rect x="412" y="498" width="240" height="28" rx="14" fill="#000000"/>
-      <circle cx="340" cy="652" r="34" fill="#000000"/>
-      <rect x="412" y="638" width="270" height="28" rx="14" fill="#000000"/>
+      ${rowShapes({ colour: false })}
     </mask>
   </defs>
   <g transform="translate(215, 215) scale(0.58)" mask="url(#cut)">
-    <rect x="232" y="232" width="560" height="560" rx="56" fill="#FFFFFF"/>
+    <rect x="${CARD.x}" y="${CARD.y}" width="${CARD.w}" height="${CARD.h}" rx="${CARD.rx}" fill="#FFFFFF"/>
   </g>
 </svg>`;
 
-async function render(svg, filename) {
-  await sharp(Buffer.from(svg))
-    .resize(SIZE, SIZE)
+// Splash: the glyph alone on transparent, cropped to the card plus its shadow.
+const splash = `${svgHeader("132 132 760 760")}
+  <defs>${DEFS}</defs>
+  ${GLYPH}
+</svg>`;
+
+// Favicon: the full icon with rounded corners.
+const favicon = `${svgHeader()}
+  <defs>${DEFS}
+    <clipPath id="round"><rect width="${SIZE}" height="${SIZE}" rx="224"/></clipPath>
+  </defs>
+  <g clip-path="url(#round)">
+    ${BACKGROUND}
+    ${GLYPH}
+  </g>
+</svg>`;
+
+async function render(svg, filename, size = SIZE) {
+  await sharp(Buffer.from(svg), { density: 144 })
+    .resize(size, size)
     .png()
     .toFile(path.join(OUT_DIR, filename));
   console.log("wrote", filename);
@@ -141,5 +210,7 @@ await render(adaptiveForeground(null), "android-icon-foreground.png");
 await render(adaptiveForeground("LOCAL"), "android-icon-foreground-local.png");
 await render(adaptiveForeground("DEV"), "android-icon-foreground-develop.png");
 await render(monochrome, "android-icon-monochrome.png");
+await render(splash, "splash-icon.png", 512);
+await render(favicon, "favicon.png", 128);
 
 console.log("done");
