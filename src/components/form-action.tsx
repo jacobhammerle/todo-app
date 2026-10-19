@@ -7,17 +7,23 @@ export function FormAction({
   label,
   onPress,
   destructive = false,
+  disabled = false,
 }: {
   label: string;
   onPress: () => void;
   destructive?: boolean;
+  disabled?: boolean;
 }) {
   const colors = useTheme();
   return (
-    <ListItem onPress={onPress}>
+    <ListItem onPress={disabled ? undefined : onPress}>
       <Text
         textStyle={{
-          color: destructive ? colors.danger : colors.tint,
+          color: disabled
+            ? colors.textSecondary
+            : destructive
+              ? colors.danger
+              : colors.tint,
           fontWeight: "600",
         }}
       >
