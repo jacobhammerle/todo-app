@@ -1,5 +1,6 @@
 import { ListItem, Text } from "@expo/ui";
 import { Button, SwipeActions } from "@expo/ui/swift-ui";
+import { tint } from "@expo/ui/swift-ui/modifiers";
 
 import { TaskCheck } from "@/components/task-check";
 import { useTheme } from "@/hooks/use-theme";
@@ -61,10 +62,13 @@ export function TaskRow({
     <SwipeActions>
       {row}
       <SwipeActions.Actions>
+        {/* Host's seedColor tints every control, including this button's
+            destructive-role background, so set the native red explicitly. */}
         <Button
           role="destructive"
           label="Delete"
           onPress={() => onDelete(todo.id)}
+          modifiers={[tint(colors.danger)]}
         />
       </SwipeActions.Actions>
     </SwipeActions>
