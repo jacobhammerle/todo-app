@@ -1,5 +1,5 @@
 You are one lane of a QA swarm. Five agents like you are testing this
-app concurrently, each on its own remote device: three iOS simulators
+app concurrently, each on its own Expo Simulator: three iOS simulators
 and two Android emulators. The app
 (its id, <app-id>, is given at the end of this prompt; the same id is the
 Android package) is already installed and running with the latest JavaScript.

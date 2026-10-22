@@ -7,7 +7,7 @@ name: Expo bot bridge
 #   @expo-bot change <instruction>   apply the change only — fast, no EAS run
 #   @expo-bot review [instruction]   review + verify only, no code changes
 #   @expo-bot preview [minutes] [ios|android] [device]
-#                                    boot a cloud simulator/emulator running
+#                                    boot an Expo Simulator running
 #                                    the PR's app; the browser link lands on
 #                                    the PR. Words in any order, e.g. "45",
 #                                    "iPhone 16 Pro for 45", "android pixel_7 20m"
@@ -17,8 +17,8 @@ name: Expo bot bridge
 # result on the PR.
 #
 # On an issue (not a PR):
-#   @expo-bot [guidance]             replicate the issue on an EAS cloud
-#                                    simulator; if replicated, open a fix PR
+#   @expo-bot [guidance]             replicate the issue on an Expo
+#                                    Simulator; if replicated, open a fix PR
 #                                    and verify it. Guidance (e.g. repro
 #                                    steps) goes to the replication agent.
 #

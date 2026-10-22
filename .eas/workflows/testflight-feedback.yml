@@ -10,7 +10,7 @@
 #                steps, and one line of guidance for the replication agent
 #   3. file:     open a GitHub issue (labels: testflight + bug|enhancement)
 #   4. dispatch: expo-bot-issue.yml replicates (bug) or confirms the gap
-#                (feature) on an EAS cloud simulator, opens a PR, and with
+#                (feature) on an Expo Simulator, opens a PR, and with
 #                auto_verify=true verifies that PR on a second simulator.
 #                Evidence sites land on the issue and on the PR.
 #
@@ -76,5 +76,5 @@ jobs:
         Triaged as **${{ needs.intake.outputs.kind }}**.
 
         - 🐙 **[GitHub issue](${{ needs.intake.outputs.issue_url }})**: the tester's comment, screenshots, and the agent triage
-        - 🤖 **[expo-bot run](${{ needs.intake.outputs.run_url }})**: replicating on an EAS cloud simulator, then opening and verifying a PR
+        - 🤖 **[expo-bot run](${{ needs.intake.outputs.run_url }})**: replicating on an Expo Simulator, then opening and verifying a PR
         - 📡 **Channel**: the fix PR gets its own `pr-<number>` update channel; surf to it from the Admin tab on your TestFlight build

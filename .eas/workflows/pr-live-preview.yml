@@ -146,7 +146,7 @@ jobs:
 
   # ── Session ──────────────────────────────────────────────────────────
   session:
-    name: 5. Boot cloud device, comment link
+    name: 5. Boot an Expo Simulator, comment link
     # `after`, not `needs`, on the platform jobs: the other platform's
     # jobs are skipped, and a skipped `needs` entry would skip this job.
     needs: [fingerprint]

@@ -5,7 +5,7 @@
 # App Store Connect fires this workflow, which fetches the symbolicated
 # crash log, has an agent write a developer-facing title and
 # summary, files a GitHub issue (labels: testflight + bug), and dispatches
-# expo-bot-issue.yml to replicate it on an EAS cloud simulator, open a
+# expo-bot-issue.yml to replicate it on an Expo Simulator, open a
 # fix PR, and verify that PR (auto_verify=true).
 #
 # Split from testflight-feedback.yml so the event type is known
@@ -57,5 +57,5 @@ jobs:
         # 💥 TestFlight crash → issue #${{ needs.intake.outputs.issue_number }}
 
         - 🐙 **[GitHub issue](${{ needs.intake.outputs.issue_url }})**: device, build, and the symbolicated crash log
-        - 🤖 **[expo-bot run](${{ needs.intake.outputs.run_url }})**: replicating on an EAS cloud simulator, then opening and verifying a PR
+        - 🤖 **[expo-bot run](${{ needs.intake.outputs.run_url }})**: replicating on an Expo Simulator, then opening and verifying a PR
         - 📡 **Channel**: the fix PR gets its own `pr-<number>` update channel; surf to it from the Admin tab on your TestFlight build
