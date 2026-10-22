@@ -15,6 +15,14 @@ Add three [secrets](https://docs.expo.dev/eas/environment-variables/) to the pro
 - `CLAUDE_CODE_OAUTH_TOKEN`: the agent's credential, from [`claude setup-token`](https://code.claude.com/docs/en/authentication#generate-a-long-lived-token)
 - `GITHUB_TOKEN`: a [fine-grained token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) with issues, pull requests, and contents write
 
+Add one plain-text variable, `APP_VARIANT`, to each environment so the fingerprint jobs hash the same icons the builds use: `develop` in `development` and `preview`, `production` in `production`. Without it the fingerprint never matches a build and every workflow builds instead of reusing or repacking.
+
+```bash
+eas env:create development --name APP_VARIANT --value develop --visibility plaintext
+eas env:create preview --name APP_VARIANT --value develop --visibility plaintext
+eas env:create production --name APP_VARIANT --value production --visibility plaintext
+```
+
 For the `@expo-bot` helpers, add two GitHub repository secrets: `EXPO_TOKEN` (a [personal access token](https://docs.expo.dev/accounts/programmatic-access/)) and the same agent credential.
 
 ```bash
