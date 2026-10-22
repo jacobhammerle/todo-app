@@ -1,7 +1,7 @@
 # ──────────────────────────────────────────────────────────────────────
 # QA swarm
 #
-# Five agentic QA lanes run AT ONCE, each on its own EAS cloud device:
+# Five agentic QA lanes run AT ONCE, each on its own Expo Simulator:
 #
 #   1. fingerprint: hash the native code for both platforms
 #   2. get-build:   find fingerprint-matched preview binaries (iOS sim, Android)
@@ -350,7 +350,7 @@ jobs:
         > ${{ needs.summarize.outputs.headline }}
 
         Five agents tested the app at the same time, each on its own EAS
-        cloud device. A lane's job status is its QA verdict.
+        Expo Simulator. A lane's job status is its QA verdict.
 
         - ⏱ **Parallel** — ${{ needs.summarize.outputs.timing }}
         - 📱 **Fleet** — ${{ needs.summarize.outputs.fleet }}

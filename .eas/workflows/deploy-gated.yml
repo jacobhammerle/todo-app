@@ -6,7 +6,7 @@
 # session type on purpose, to show it. Mobile-CD demo: publish the OTA
 # bundle to preview, let an AI agent read the diff that's shipping
 # (current source vs the last production update), derive what to test,
-# and verify it live on a cloud simulator running the fingerprint-matched
+# and verify it live on an Expo Simulator running the fingerprint-matched
 # binary. Only a PASS verdict promotes the same update group to production.
 #
 #   1. fingerprint: hash the native code
@@ -89,7 +89,7 @@ jobs:
       message: "Gated deploy candidate"
 
   verify_on_simulator:
-    name: 5. AI release gate on cloud simulator
+    name: 5. AI release gate on an Expo Simulator
     needs: [get_build, publish_preview]
     env:
       BUILD_ID: ${{ needs.get_build.outputs.build_id }}
@@ -328,7 +328,7 @@ jobs:
         > ${{ needs.verify_on_simulator.outputs.verdict }}
 
         1. The OTA bundle was published to **preview**.
-        2. A cloud simulator installed the fingerprint-matched binary and pulled
+        2. An Expo Simulator installed the fingerprint-matched binary and pulled
            that exact update over the air.
         3. The agent derived checks from the release diff and verified them on the
            device — full narrative in the "AI release gate" step logs.

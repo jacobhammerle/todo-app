@@ -6,7 +6,7 @@
 #   1. build:    find a fingerprint-matched simulator binary (or build one)
 #   2. repack:   inject the base branch's JS into it (nothing is published
 #                to a shared channel, so parallel triages never collide)
-#   3. validate: an agent tries to replicate the issue on an EAS cloud sim
+#   3. validate: an agent tries to replicate the issue on an Expo Simulator
 #   4. evidence: screenshots go to EAS Hosting at alias issue-N-evidence
 #   5. outcome:  replicated     -> a fix agent opens a PR (expo-bot/issue-N)
 #                confirmed      -> (feature request) same, implementing it
@@ -15,7 +15,7 @@
 #   6. verify:   expo-bot-verify.yml is dispatched on the new PR (default;
 #                pass auto_verify=false to skip), so a phone screenshot or
 #                an @expo-bot comment ends as a verified PR with no human
-#                step: code review, a second cloud simulator, evidence, and
+#                step: code review, a second Expo Simulator, evidence, and
 #                the update channel to surf to all land on the PR
 #
 # Dispatched by .github/workflows/expo-bot-bridge.yml from a base-branch
@@ -102,7 +102,7 @@ jobs:
       message: Issue ${{ inputs.issue_number }} expo-bot triage
 
   validate:
-    name: 5. Replicate on cloud simulator
+    name: 5. Replicate on an Expo Simulator
     needs: [get_build]
     after: [build, repack]
     environment: production
@@ -147,7 +147,7 @@ jobs:
 
         The run failed before a clean verdict and evidence publish. A status
         comment was posted on the issue; details are in the
-        "5. Replicate on cloud simulator" job logs.
+        "5. Replicate on an Expo Simulator" job logs.
 
   report:
     name: 6. Triage report
@@ -160,5 +160,5 @@ jobs:
         > ${{ needs.validate.outputs.verdict_shown }}
 
         - 🔧 **Fix PR**: ${{ needs.validate.outputs.pr_url }}
-        - 🧪 **Verification run** (review + a second cloud simulator; lands on the PR): ${{ needs.validate.outputs.verify_run_url }}
+        - 🧪 **Verification run** (review + a second Expo Simulator; lands on the PR): ${{ needs.validate.outputs.verify_run_url }}
         - 🖼️ **[Evidence site](${{ needs.validate.outputs.evidence_url }})**: screenshots from the simulator run

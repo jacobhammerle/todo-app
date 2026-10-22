@@ -12,8 +12,8 @@
 #   6. publish:     publish the PR's JS to its own channel, pr-N, so a
 #                   human can surf to it from the Admin tab on any release
 #                   build
-#   7. verify:      an agent drives the repacked app on an EAS cloud
-#                   simulator; screenshots go to EAS Hosting at alias
+#   7. verify:      an agent drives the repacked app on an Expo
+#                   Simulator; screenshots go to EAS Hosting at alias
 #                   pr-N-evidence, and review, verdict, evidence, and the
 #                   pr-N channel land on the PR
 #   8. blocked:     or a note when verify (or the publish) failed
@@ -122,7 +122,7 @@ jobs:
       message: PR ${{ inputs.pr_number }} expo-bot verify
 
   verify:
-    name: 7. Verify on cloud simulator
+    name: 7. Verify on an Expo Simulator
     needs: [get_build, publish_update]
     after: [build, repack]
     environment: production
@@ -170,7 +170,7 @@ jobs:
 
         The run failed before a clean verdict and evidence publish. A status
         comment was posted on the PR; details are in the
-        "7. Verify on cloud simulator" job logs. If verify was skipped, the
+        "7. Verify on an Expo Simulator" job logs. If verify was skipped, the
         "6. Publish PR JS to channel pr-N" job failed first and the PR got
         no comment.
 

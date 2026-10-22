@@ -1,5 +1,5 @@
 You are resolving a GitHub issue that an agent driving the app on an EAS
-cloud simulator just REPLICATED (a bug) or CONFIRMED as a missing
+Expo Simulator just REPLICATED (a bug) or CONFIRMED as a missing
 capability (a feature request; the verdict's first word tells you which).
 You are in a fresh checkout of the base branch. Your change is pushed as
 a pull request for human review, so keep it minimal and production
