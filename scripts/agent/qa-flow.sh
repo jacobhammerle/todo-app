@@ -55,10 +55,11 @@ require_build "${PLATFORM} binary to test against"
 # The evidence folder is uploaded as the lane's artifact even when the lane
 # fails, and an empty folder fails the upload step. The marker names the
 # lane; the evidence site reads only images and clips, so it is ignored there.
+# On a laptop a previous lane's screenshots and site would otherwise end
+# up on this lane's page; each EAS worker starts empty anyway.
 mkdir -p "$EVIDENCE_DIR"
+find "${EVIDENCE_DIR:?}" -mindepth 1 -maxdepth 1 \( -name '*.png' -o -name '*.mp4' -o -name '*.mov' -o -name '*.txt' -o -name site -o -name session \) -exec rm -rf {} +
 printf 'lane=%s\nplatform=%s\nbuild=%s\n' "$LANE" "$PLATFORM" "$BUILD_ID" > "$EVIDENCE_DIR/lane.txt"
-
-mkdir -p "$EVIDENCE_DIR"
 
 echo "QA lane '${LANE}' against binary $BUILD_ID (repacked or built with this checkout's JS)"
 

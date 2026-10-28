@@ -69,11 +69,11 @@ evidence_thumbs() { evidence_tool thumbs "$1" "$2" --max 4; }
 # simulator, qa-flow, pr-live-preview) and the agent runners.
 
 # eas <args...> -> eas-cli, one pinned version for every call: a floating
-# @latest can change simulator:* behavior between runs. 25.1.1 is the
-# version eas-simulator-evidence 0.2.3 was checked against; exported so
+# @latest can change simulator:* behavior between runs. 26.0.0 is the
+# version eas-simulator-evidence 0.2.4 was checked against; exported so
 # eas-simulator-evidence (collect, deploy) and intake-testflight.mjs run
 # the same one. Set EAS_CLI_VERSION to override.
-export EAS_CLI_VERSION="${EAS_CLI_VERSION:-25.1.1}"
+export EAS_CLI_VERSION="${EAS_CLI_VERSION:-26.0.0}"
 eas() { npx --yes "eas-cli@${EAS_CLI_VERSION}" "$@"; }
 
 # require_env NAME "<how to fix>" -> exit 1 with the hint when NAME is empty.
@@ -105,10 +105,13 @@ require_build() {
 # use_simulator_token [optional] -> the worker's auto-injected EXPO_TOKEN is
 # restricted-scope and cannot create simulator sessions (they are
 # actor-gated), so the personal access token stored as EXPO_TOKEN_SIMULATOR
-# becomes EXPO_TOKEN for everything. Required unless "optional" is passed.
+# becomes EXPO_TOKEN for everything. Required on an EAS worker unless
+# "optional" is passed; on a laptop the eas-cli login is used as is.
 use_simulator_token() {
   if [ -n "${EXPO_TOKEN_SIMULATOR:-}" ]; then
     export EXPO_TOKEN="$EXPO_TOKEN_SIMULATOR"
+  elif [ -z "${EAS_BUILD_RUNNER:-}" ]; then
+    echo "EXPO_TOKEN_SIMULATOR is not set; using the local eas-cli login for simulator sessions."
   elif [ "${1:-}" != "optional" ]; then
     echo "EXPO_TOKEN_SIMULATOR is not set; simulator:start will fail with 'Not authorized'."
     echo "Add a personal access token as EXPO_TOKEN_SIMULATOR in the production environment."
@@ -296,6 +299,13 @@ cap_diff() {
     mv "$1.capped" "$1"
   fi
 }
+
+# set-output <name> <value> -> an EAS Workflows step output on a worker; on
+# a laptop (where the command does not exist) a log line, so a lane can be
+# rehearsed locally and still show what it would have reported.
+if ! command -v set-output >/dev/null 2>&1; then
+  set-output() { echo "output $1=$2"; }
+fi
 
 # fmt_dur <seconds> -> "3m 07s" or "42s".
 fmt_dur() { local s=$1; if [ "$s" -ge 60 ]; then printf '%dm %02ds' $((s / 60)) $((s % 60)); else printf '%ds' "$s"; fi; }

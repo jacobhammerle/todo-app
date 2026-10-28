@@ -12,6 +12,12 @@
 # "optional", return 1 quietly instead.
 runner_check() {
   if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+    # On a laptop (not an EAS worker) the local `claude` login does the job,
+    # so a lane can be rehearsed without a token in the environment.
+    if [ -z "${EAS_BUILD_RUNNER:-}" ] && command -v claude >/dev/null 2>&1; then
+      echo "No CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY; using the local claude login."
+      return 0
+    fi
     [ "${1:-}" = "optional" ] && return 1
     echo "Neither CLAUDE_CODE_OAUTH_TOKEN nor ANTHROPIC_API_KEY is set; add one as a secret."
     exit 1

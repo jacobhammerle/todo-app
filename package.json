@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.3.0",
-    "eas-simulator-evidence": "^0.2.3",
+    "eas-simulator-evidence": "0.2.4",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~58.0.0",
     "prettier": "3.9.5",
