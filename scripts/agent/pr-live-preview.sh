@@ -5,8 +5,9 @@
 # the pr-live-preview workflow before this script runs. The session stays
 # up until it hits DURATION_MINUTES, so the reviewer can drive the app in
 # the browser.
-# Requires: BUILD_ID, PR_NUMBER, GITHUB_TOKEN, EXPO_TOKEN_SIMULATOR
-# Optional: GH_REPO (owner/repo; default: package.json "repository")
+# Requires: BUILD_ID, PR_NUMBER, GITHUB_TOKEN
+# Optional: EXPO_TOKEN_SIMULATOR (used first when set; comment-lib.sh)
+#           GH_REPO (owner/repo; default: package.json "repository")
 #           DURATION_MINUTES (default 30)
 #           PLATFORM (ios|android, default ios)
 #           DEVICE   (passed to `simulator:start --device`; iOS Simulator

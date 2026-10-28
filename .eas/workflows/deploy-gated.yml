@@ -22,7 +22,7 @@
 # unverified. Run:
 #   eas workflow:run deploy-gated.yml [-F test_focus="..."] [-F keep_preview=true]
 # Env vars required (EAS environment variables, production environment):
-#   EXPO_TOKEN_SIMULATOR      personal access token (simulator is actor-gated)
+#   EXPO_TOKEN_SIMULATOR      optional personal access token; used first when set
 #   agent credentials        the runner's variables (scripts/agent/runners/)
 # Agent instructions live in .eas/deploy-gate-prompt.md and the shared
 # helpers in scripts/agent/comment-lib.sh (EAS caps workflow YAML at 16 kB).
@@ -169,9 +169,8 @@ jobs:
           set -euo pipefail
           . scripts/agent/comment-lib.sh   # eas, use_simulator_token, wait_for_session, json_field
 
-          # The worker's auto-injected EXPO_TOKEN cannot create simulator
-          # sessions; device-run sessions are also actor-gated, so this must be
-          # a personal access token, not a robot token.
+          # EXPO_TOKEN_SIMULATOR first when set, else the run's own token
+          # (comment-lib.sh).
           use_simulator_token
 
           APP_ID=$(app_id)
@@ -230,7 +229,7 @@ jobs:
           . scripts/agent/comment-lib.sh   # eas, use_agent_token, use_simulator_token, normalize_verdict
 
           # The agent runner's credentials, as EAS environment variables
-          # alongside EXPO_TOKEN_SIMULATOR (scripts/agent/run-agent.sh).
+          # (scripts/agent/run-agent.sh).
           use_agent_token
           use_simulator_token optional
 

@@ -3,9 +3,10 @@
 # built) with this PR's JS, lets an agent verify the PR (screenshots
 # into evidence/), deploys the evidence to EAS Hosting, comments the result
 # on the PR, and emits step outputs.
-# Requires: BUILD_ID, PR_NUMBER, GITHUB_TOKEN, EXPO_TOKEN_SIMULATOR,
+# Requires: BUILD_ID, PR_NUMBER, GITHUB_TOKEN,
 #           the agent runner's credentials (scripts/agent/run-agent.sh)
-# Optional: GH_REPO (owner/repo; default: package.json "repository")
+# Optional: EXPO_TOKEN_SIMULATOR (used first when set; comment-lib.sh)
+#           GH_REPO (owner/repo; default: package.json "repository")
 #           INSTRUCTION (reviewer guidance from the @expo-bot comment)
 #           BUILD_STATUS, REPACK_STATUS (upstream job statuses)
 #           UPDATE_CHANNEL (channel the workflow published the PR's JS to;

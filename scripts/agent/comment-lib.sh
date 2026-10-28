@@ -102,20 +102,24 @@ require_build() {
   fi
 }
 
-# use_simulator_token [optional] -> the worker's auto-injected EXPO_TOKEN is
-# restricted-scope and cannot create simulator sessions (they are
-# actor-gated), so the personal access token stored as EXPO_TOKEN_SIMULATOR
-# becomes EXPO_TOKEN for everything. Required on an EAS worker unless
-# "optional" is passed; on a laptop the eas-cli login is used as is.
+# use_simulator_token [optional] -> picks the token for simulator sessions.
+# A personal access token stored as the secret EXPO_TOKEN_SIMULATOR is used
+# first when it is set. Otherwise the token already in the environment is
+# used: on an EAS worker that is the EXPO_TOKEN every workflow run gets,
+# on a laptop the eas-cli login. The worker token starts sessions on its
+# own; no extra secret is needed for that. A "Not authorized" from
+# simulator:start means Expo Simulators is not enabled on the account the
+# active token belongs to (check with `eas simulator:availability`), which
+# is the one reason to set EXPO_TOKEN_SIMULATOR: a token from an account
+# that has access. See SETUP.md. The "optional" argument is accepted for
+# older callers and changes nothing.
 use_simulator_token() {
   if [ -n "${EXPO_TOKEN_SIMULATOR:-}" ]; then
     export EXPO_TOKEN="$EXPO_TOKEN_SIMULATOR"
-  elif [ -z "${EAS_BUILD_RUNNER:-}" ]; then
+  elif [ -n "${EAS_BUILD_RUNNER:-}" ]; then
+    echo "EXPO_TOKEN_SIMULATOR is not set; using the workflow run's own EXPO_TOKEN for simulator sessions."
+  else
     echo "EXPO_TOKEN_SIMULATOR is not set; using the local eas-cli login for simulator sessions."
-  elif [ "${1:-}" != "optional" ]; then
-    echo "EXPO_TOKEN_SIMULATOR is not set; simulator:start will fail with 'Not authorized'."
-    echo "Add a personal access token as EXPO_TOKEN_SIMULATOR in the production environment."
-    exit 1
   fi
 }
 
