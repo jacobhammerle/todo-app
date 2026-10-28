@@ -2,8 +2,8 @@
 # Thin wrapper for the TestFlight intake job: picks the token, runs the
 # intake script, and publishes its result as step outputs.
 # Requires: FEEDBACK_KIND (screenshot|crash), GITHUB_TOKEN,
-#           BASE_BRANCH, EXPO_TOKEN_SIMULATOR (or an EXPO_TOKEN that can
-#           read the project's App Store Connect API key)
+#           BASE_BRANCH, an EXPO_TOKEN that can read the project's App
+#           Store Connect API key (EXPO_TOKEN_SIMULATOR is used first when set)
 # Optional: GH_REPO (owner/repo; default: package.json "repository"),
 #           ASC_FEEDBACK_ID (trigger context),
 #           the agent runner's credentials (agent triage; run-agent.sh)

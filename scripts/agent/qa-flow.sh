@@ -6,9 +6,10 @@
 # evidence to EAS Hosting at alias qa-<PLATFORM>-<FLOW>-evidence, emits
 # timing metrics, and exits with the verdict (PASS -> 0, else 1) so the
 # lane's job status mirrors the QA result.
-# Requires: BUILD_ID, FLOW, EXPO_TOKEN_SIMULATOR,
+# Requires: BUILD_ID, FLOW,
 #           the agent runner's credentials (scripts/agent/run-agent.sh)
-# Optional: PLATFORM (ios | android; default ios)
+# Optional: EXPO_TOKEN_SIMULATOR (used first when set; comment-lib.sh)
+#           PLATFORM (ios | android; default ios)
 #           BUILD_STATUS, REPACK_STATUS (upstream job statuses)
 #           PR_NUMBER (names the session after the PR when set)
 set -euo pipefail

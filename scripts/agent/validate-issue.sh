@@ -9,8 +9,9 @@
 #                     PR implements it
 #   NOT-REPLICATED -> the issue gets the reasoning + evidence link
 # Requires: BUILD_ID, ISSUE_NUMBER, BASE_BRANCH, GITHUB_TOKEN,
-#           EXPO_TOKEN_SIMULATOR, the agent runner's credentials (scripts/agent/run-agent.sh)
-# Optional: GH_REPO (owner/repo; default: package.json "repository")
+#           the agent runner's credentials (scripts/agent/run-agent.sh)
+# Optional: EXPO_TOKEN_SIMULATOR (used first when set; comment-lib.sh)
+#           GH_REPO (owner/repo; default: package.json "repository")
 #           INSTRUCTION (guidance from the @expo-bot comment)
 #           BUILD_STATUS, REPACK_STATUS (upstream job statuses)
 #           AUTO_VERIFY (default true: fix-issue.sh dispatches expo-bot-verify

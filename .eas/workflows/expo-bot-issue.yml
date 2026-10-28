@@ -24,7 +24,7 @@
 #   eas workflow:run expo-bot-issue.yml -F issue_number=<N>
 #
 # Env vars required (EAS environment variables, production environment):
-#   EXPO_TOKEN_SIMULATOR      personal access token (simulator is actor-gated)
+#   EXPO_TOKEN_SIMULATOR      optional personal access token; used first when set
 #   agent credentials        the runner's variables (scripts/agent/runners/)
 #   GITHUB_TOKEN              GitHub token with issues + contents + PR write
 #                             (contents write is new vs the PR verify flow:

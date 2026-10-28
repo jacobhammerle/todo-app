@@ -24,8 +24,9 @@
 #   eas workflow:run testflight-feedback.yml
 #
 # Env vars required (EAS environment variables, production environment):
-#   EXPO_TOKEN_SIMULATOR      personal access token: reads the project's
-#                             ASC API key and dispatches expo-bot-issue
+#   EXPO_TOKEN_SIMULATOR      optional personal access token; used first when
+#                             set to read the project's ASC API key and to
+#                             dispatch expo-bot-issue
 #   agent credentials        the runner's variables (scripts/agent/runners/)
 #   GITHUB_TOKEN              GitHub token with issues write
 # GH_REPO (owner/repo) is read from package.json "repository"; an EAS env var

@@ -24,7 +24,7 @@
 #   eas workflow:run .eas/workflows/qa-swarm.yml [-F pr_number=<n>]
 #
 # Env vars required (EAS environment variables, production environment):
-#   EXPO_TOKEN_SIMULATOR      personal access token (simulator is actor-gated)
+#   EXPO_TOKEN_SIMULATOR      optional personal access token; used first when set
 #   agent credentials        the runner's variables (scripts/agent/runners/)
 #   GITHUB_TOKEN              PR comment (pr_number runs only)
 # GH_REPO (owner/repo) is read from package.json "repository"; an EAS env var
