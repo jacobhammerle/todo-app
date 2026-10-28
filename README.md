@@ -26,7 +26,7 @@ flowchart LR
 
 Mention the bot on a pull request or an issue and a GitHub Action routes the comment to an [EAS Workflow](https://docs.expo.dev/eas/workflows/get-started/). Every helper runs on an [Expo Simulator](https://docs.expo.dev/eas/simulators/). The mention is yours to pick: it is the `botHandle` field in [package.json](package.json), `@expo-bot` by default, and every message and branch name follows it.
 
-1. **`@your-bot`** or **`@your-bot review [guidance]`** on a PR. One agent reviews the diff, a second runs the PR's app on an Expo Simulator and taps through the change. The verdict and screenshots land on the PR.
+1. **`@your-bot`** or **`@your-bot review [guidance]`** on a PR. One agent reviews the diff, a second runs the PR's app on an Expo Simulator and taps through the change. The verdict and screenshots land on the PR. Opening a pull request runs this mode by itself ([expo-bot-pr-opened.yml](.github/workflows/expo-bot-pr-opened.yml)); drafts wait until they are marked ready, and the bot's own fix PRs are skipped because the issue flow already verifies them.
 2. **`@your-bot <instruction>`** on a PR. An agent applies the change, pushes to the PR branch, then an agent verifies the result on an Expo Simulator.
 3. **`@your-bot preview [minutes] [ios or android] [device]`** on a PR. Boots an Expo Simulator running the PR's app and posts a browser link, so anyone can drive it. Words in any order, for example `@your-bot preview iPhone 16 Pro`.
 4. **`@your-bot [guidance]`** on an issue. Starts the loop above: reproduce on an Expo Simulator, fix, verify. Guidance such as missing repro steps goes to the replication agent.
