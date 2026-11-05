@@ -89,7 +89,11 @@ export default function TasksScreen() {
             enterKeyHint="done"
             onSubmitEditing={submit}
           />
-          <FormAction label="Add task" onPress={submit} />
+          <FormAction
+            label="Add task"
+            onPress={submit}
+            disabled={!title.trim()}
+          />
           <FormAction
             label="Add with details…"
             onPress={() => setSheetOpen(true)}
