@@ -60,7 +60,7 @@ function parseJson(text) {
 }
 // One pinned eas-cli, the same one comment-lib.sh's `eas` wrapper runs
 // (intake-testflight.sh exports EAS_CLI_VERSION from it).
-const EAS_CLI = `eas-cli@${process.env.EAS_CLI_VERSION || "25.1.1"}`;
+const EAS_CLI = `eas-cli@${process.env.EAS_CLI_VERSION || "27.10.0"}`;
 function eas(args) {
   const out = execFileSync(
     "npx",

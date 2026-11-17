@@ -69,11 +69,11 @@ evidence_thumbs() { evidence_tool thumbs "$1" "$2" --max 4; }
 # simulator, qa-flow, pr-live-preview) and the agent runners.
 
 # eas <args...> -> eas-cli, one pinned version for every call: a floating
-# @latest can change simulator:* behavior between runs. 26.0.0 is the
-# version eas-simulator-evidence 0.2.4 was checked against; exported so
+# @latest can change simulator:* behavior between runs. 27.10.0 is the
+# version eas-simulator-evidence 0.3.0 was checked against; exported so
 # eas-simulator-evidence (collect, deploy) and intake-testflight.mjs run
 # the same one. Set EAS_CLI_VERSION to override.
-export EAS_CLI_VERSION="${EAS_CLI_VERSION:-26.0.0}"
+export EAS_CLI_VERSION="${EAS_CLI_VERSION:-27.10.0}"
 eas() { npx --yes "eas-cli@${EAS_CLI_VERSION}" "$@"; }
 
 # require_env NAME "<how to fix>" -> exit 1 with the hint when NAME is empty.
